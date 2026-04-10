@@ -15,6 +15,7 @@
     <!-- 状态栏 -->
     <div id="status">👋 欢迎使用无障碍出行伴侣</div>
 
+<<<<<<< HEAD
     <!-- 路线规划功能（顶部留5厘米版） -->
 <!-- 地址搜索与路线规划面板 -->
 <div id="search-panel" style="position: fixed; top: 70px; left: 10px; right: 10px; z-index: 1001; background: rgba(255,255,255,0.95); backdrop-filter: blur(5px); padding: 12px; border-radius: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
@@ -23,6 +24,17 @@
         <span style="font-size: 18px;">→</span>
         <input type="text" id="endAddress" placeholder="终点（例如：衡阳火车站）" style="flex:1; padding: 12px; border: 1px solid #ddd; border-radius: 30px; font-size: 14px;">
         <button id="searchRouteBtn" style="padding: 12px 18px; border-radius: 30px; background: #007aff; color: white; border: none; font-weight: bold;">🔍 规划</button>
+=======
+    <!-- 路线规划功能 -->
+    <div id="routePlan">
+        <h4>无障碍路线规划</h4>
+        <input type="text" id="startPoint" placeholder="输入起点">
+        <input type="text" id="endPoint" placeholder="输入终点">
+        <div class="btn-row">
+            <button onclick="planRoute()">规划路线</button>
+            <button onclick="clearRoute()">清除路线</button>
+        </div>
+>>>>>>> edd2031d5d37402003470dc9390cd252a8a17382
     </div>
     <div style="margin-top: 8px; display: flex; align-items: center; gap: 15px;">
         <label style="font-size: 14px;"><input type="checkbox" id="wheelchairModeSearch" checked> ♿ 轮椅优先（避开台阶/障碍）</label>
@@ -123,6 +135,7 @@
     <button id="clearDataBtn" style="position:fixed; bottom:20px; right:10px; background:#6c757d;">🗑️ 清除我的数据</button>
 
     <script src="mockData.js"></script>
+    <script src="campusData.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

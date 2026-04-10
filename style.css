@@ -439,3 +439,88 @@ th {
     .facility-panel { width: 200px; top: 70px; }
     #routePrefPanel { min-width: 160px; bottom: 100px; }
 }
+
+/* 路线规划面板样式 */
+#routePlan {
+  position: fixed;
+  top: 5cm;
+  left: 12px;
+  z-index: 9999;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 14px 16px;
+  border-radius: 20px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(6px);
+  width: 220px;
+}
+
+#routePlan h4 {
+  margin: 0 0 12px 0;
+  font-size: 16px;
+  color: #333;
+  text-align: center;
+}
+
+/* 路线规划面板样式 */
+#routePlan {
+  position: fixed;
+  top: 5cm;
+  left: 12px;
+  z-index: 9999;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 14px 16px;
+  border-radius: 20px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(6px);
+  width: 220px;
+}
+
+#routePlan h4 {
+  margin: 0 0 12px 0;
+  font-size: 16px;
+  color: #333;
+  text-align: center;
+}
+
+/* 规划面板输入框 */
+#routePlan input {
+  width: 100%;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  border: 1px solid #ddd;
+  border-radius: 14px;
+  font-size: 14px;
+  background: #f9f9f9;
+  box-sizing: border-box;
+}
+
+#routePlan input:focus {
+  outline: none;
+  border-color: #007aff;
+  background: #fff;
+}
+
+/* 按钮行：左右对称布局核心 */
+#routePlan .btn-row {
+  display: flex;
+  justify-content: space-between; /* 左右两端对齐，中间留白 */
+  align-items: center;
+  width: 100%;
+}
+
+/* 规划面板按钮：保持现有宽度不变 */
+#routePlan button {
+  width: 48%; /* 保持你现在的按钮宽度，不改动 */
+  padding: 9px 0;
+  border: none;
+  border-radius: 14px;
+  background: #007aff;
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+#routePlan button:hover {
+  background: #0066cc;
+}
