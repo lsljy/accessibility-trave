@@ -15,7 +15,7 @@
     <!-- 状态栏 -->
     <div id="status">👋 欢迎使用无障碍出行伴侣</div>
 
-    <!-- 控制面板 -->
+    <!-- 底部控制面板 -->
     <div id="control-panel">
         <button id="voiceBtn" title="语音导航">🎤 语音</button>
         <button id="sosBtn" title="一键求助">🆘 SOS</button>
@@ -27,6 +27,34 @@
 
     <!-- 数据看板按钮（悬浮） -->
     <button id="statsBtn" style="position:fixed; bottom:80px; right:10px; z-index:1001;">📊 数据看板</button>
+
+    <!-- 路径规划偏好面板（成员A新增） -->
+    <div id="routePrefPanel">
+        <div class="pref-title">🚀 路径规划偏好</div>
+        <div class="pref-item">
+            <label>♿ 轮椅优先模式</label>
+            <input type="checkbox" id="wheelchairMode" checked>
+        </div>
+        <div class="pref-item">
+            <label>📈 坡道偏好 (优先选择有坡道路段)</label>
+            <input type="checkbox" id="rampPrefer">
+        </div>
+        <div class="pref-item">
+            <label>🚫 避开障碍类型:</label>
+            <div class="obstacle-types">
+                <label><input type="checkbox" value="台阶" class="avoid-type"> 台阶</label>
+                <label><input type="checkbox" value="坡道损坏" class="avoid-type"> 坡道损坏</label>
+                <label><input type="checkbox" value="盲道被占" class="avoid-type"> 盲道被占</label>
+                <label><input type="checkbox" value="电梯故障" class="avoid-type"> 电梯故障</label>
+            </div>
+        </div>
+    </div>
+
+    <!-- 实时设施状态面板（成员A新增） -->
+    <div id="facilityPanel" class="facility-panel">
+        <div class="panel-header">🏢 实时设施状态 <span id="refreshIndicator">🟢 动态更新</span></div>
+        <div id="facilityList"></div>
+    </div>
 
     <!-- 隐私声明模态框（首次访问） -->
     <div id="privacyModal" class="modal" style="display:flex;">
@@ -73,12 +101,6 @@
                 <button type="submit" class="btn-primary">提交上报</button>
             </form>
         </div>
-    </div>
-
-    <!-- 路线模式切换开关 -->
-    <div id="routeModeSwitch">
-        <label>♿ 轮椅优先模式</label>
-        <input type="checkbox" id="wheelchairMode" checked>
     </div>
 
     <!-- 清除数据按钮 -->

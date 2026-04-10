@@ -41,6 +41,19 @@ body.high-contrast select {
     color: #ff0;
     border: 1px solid #ff0;
 }
+body.high-contrast .facility-panel,
+body.high-contrast #routePrefPanel {
+    background: #000;
+    border: 2px solid #ff0;
+    color: #ff0;
+}
+body.high-contrast .panel-header {
+    background: #ff0;
+    color: #000;
+}
+body.high-contrast .facility-item {
+    border-bottom-color: #ff0;
+}
 
 /* 地图容器 */
 #map {
@@ -82,7 +95,6 @@ body.high-contrast select {
     z-index: 1000;
     border: 1px solid rgba(255,255,255,0.5);
 }
-
 #control-panel button,
 #control-panel a {
     flex: 1;
@@ -106,22 +118,127 @@ body.high-contrast select {
     background: #005bb5;
 }
 
-/* 路线模式切换 */
-#routeModeSwitch {
+/* 路径规划偏好面板（成员A新增） */
+#routePrefPanel {
     position: fixed;
-    bottom: 100px;
+    bottom: 110px;
     left: 10px;
-    background: rgba(255,255,255,0.9);
-    padding: 8px 15px;
-    border-radius: 40px;
-    backdrop-filter: blur(5px);
+    background: rgba(255,255,255,0.95);
+    backdrop-filter: blur(8px);
+    padding: 12px 15px;
+    border-radius: 20px;
     z-index: 1000;
-    font-size: 14px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    font-size: 13px;
+    width: auto;
+    min-width: 200px;
+    border: 1px solid rgba(0,0,0,0.05);
 }
-#routeModeSwitch input {
-    margin-left: 8px;
-    transform: scale(1.2);
+.pref-title {
+    font-weight: bold;
+    margin-bottom: 8px;
+    font-size: 14px;
+    color: #007aff;
+}
+.pref-item {
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.pref-item label:first-child {
+    font-weight: 600;
+    margin-right: 6px;
+}
+.obstacle-types {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-left: 6px;
+}
+.obstacle-types label {
+    font-size: 12px;
+    background: #f0f0f0;
+    padding: 2px 8px;
+    border-radius: 20px;
+    cursor: pointer;
+}
+.obstacle-types input {
+    margin-right: 3px;
+    transform: scale(0.9);
+}
+
+/* 实时设施状态面板（成员A新增） */
+.facility-panel {
+    position: fixed;
+    top: 80px;
+    right: 10px;
+    width: 240px;
+    background: rgba(255,255,255,0.95);
+    backdrop-filter: blur(8px);
+    border-radius: 20px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.2);
+    z-index: 1000;
+    font-size: 13px;
+    overflow: hidden;
+    border: 1px solid #ddd;
+    max-height: 300px;
+    display: flex;
+    flex-direction: column;
+}
+.panel-header {
+    background: #007aff;
+    color: white;
+    padding: 10px 12px;
+    font-weight: bold;
+    display: flex;
+    justify-content: space-between;
+    font-size: 14px;
+}
+#facilityList {
+    padding: 8px 12px;
+    overflow-y: auto;
+    max-height: 250px;
+}
+.facility-item {
+    padding: 8px 0;
+    border-bottom: 1px solid #eee;
+    cursor: pointer;
+    transition: 0.1s;
+}
+.facility-item:hover {
+    background: #f0f7ff;
+}
+.facility-name {
+    font-weight: 600;
+}
+.facility-detail {
+    font-size: 11px;
+    color: #555;
+    margin-top: 4px;
+}
+.status-normal {
+    color: #34c759;
+}
+.status-warning {
+    color: #ff3b30;
+}
+#refreshIndicator {
+    font-size: 10px;
+    background: rgba(0,0,0,0.2);
+    padding: 2px 6px;
+    border-radius: 20px;
+}
+
+/* 高亮障碍物标记动画 */
+.obstacle-highlight {
+    filter: drop-shadow(0 0 6px red);
+    animation: pulse 0.8s infinite;
+}
+@keyframes pulse {
+    0% { transform: scale(1); opacity: 1; }
+    100% { transform: scale(1.2); opacity: 0.8; }
 }
 
 /* 模态框通用 */
@@ -319,4 +436,6 @@ th {
 @media (max-width: 600px) {
     .stats-cards { grid-template-columns: repeat(2,1fr); }
     .charts-container > div { flex: 1 1 100%; }
+    .facility-panel { width: 200px; top: 70px; }
+    #routePrefPanel { min-width: 160px; bottom: 100px; }
 }
