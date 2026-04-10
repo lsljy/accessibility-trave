@@ -14,10 +14,36 @@ let facilityStatus = {
     "万达广场": { elevator: "正常", ramp: "维修中" }
 };
 
-// 障碍物数据（初始）
+// 障碍物数据（扩展字段：志愿者认领、处理照片、完成时间）
 let obstacles = [
-    { id: 101, lat: 31.2280, lng: 121.4700, type: "台阶", description: "图书馆南门三级台阶", status: "未处理", reportTime: "2025-04-08", photo: null },
-    { id: 102, lat: 31.2330, lng: 121.4600, type: "坡道损坏", description: "万达广场侧门坡道破损", status: "处理中", reportTime: "2025-04-09", photo: null }
+    {
+        id: 101,
+        lat: 31.2280,
+        lng: 121.4700,
+        type: "台阶",
+        description: "图书馆南门三级台阶",
+        status: "未处理",        // 状态：未处理、处理中、已完成（替代原“已处理”语义）
+        reportTime: "2025-04-08",
+        photo: null,             // 上报时照片
+        claimedBy: null,         // 认领志愿者姓名
+        claimTime: null,         // 认领时间
+        resolvedPhoto: null,     // 处理完成后照片
+        resolvedTime: null       // 完成时间
+    },
+    {
+        id: 102,
+        lat: 31.2330,
+        lng: 121.4600,
+        type: "坡道损坏",
+        description: "万达广场侧门坡道破损",
+        status: "处理中",
+        reportTime: "2025-04-09",
+        photo: null,
+        claimedBy: "志愿者张三",
+        claimTime: "2025-04-10",
+        resolvedPhoto: null,
+        resolvedTime: null
+    }
 ];
 
 // 存储操作
@@ -43,7 +69,6 @@ function loadContrastPref() {
 }
 
 // 简易路网（用于路径规划）
-// 节点ID: 1=图书馆, 2=地铁站, 3=医院, 4=万达广场
 const graph = {
     nodes: {
         1: { name: "市民中心图书馆", lat: 31.2304, lng: 121.4737 },
@@ -52,10 +77,13 @@ const graph = {
         4: { name: "万达广场", lat: 31.2350, lng: 121.4500 }
     },
     edges: [
-        { from: 1, to: 2, distance: 1.2, accessible: true },   // 图书馆-地铁，有坡道
-        { from: 1, to: 3, distance: 0.9, accessible: true },   // 图书馆-医院
-        { from: 2, to: 4, distance: 1.5, accessible: false },  // 地铁-万达，有台阶
-        { from: 3, to: 4, distance: 2.0, accessible: true },   // 医院-万达
-        { from: 1, to: 4, distance: 2.2, accessible: false }   // 图书馆-万达，部分台阶
+        { from: 1, to: 2, distance: 1.2, accessible: true },
+        { from: 1, to: 3, distance: 0.9, accessible: true },
+        { from: 2, to: 4, distance: 1.5, accessible: false },
+        { from: 3, to: 4, distance: 2.0, accessible: true },
+        { from: 1, to: 4, distance: 2.2, accessible: false }
     ]
 };
+
+// 新增：通知权限请求状态
+let notificationEnabled = false;

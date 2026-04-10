@@ -3,52 +3,64 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>管理员面板 - 无障碍出行伴侣</title>
+    <title>管理员面板 · 社区互助版</title>
     <link rel="stylesheet" href="style.css">
+    <!-- Leaflet 地图库（用于热力图） -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- 热力图插件 -->
+    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+    <!-- ECharts -->
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <!-- PDF导出库 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
     <div class="admin-header">
-        <h1>🚧 障碍物管理后台</h1>
-        <a href="index.html" class="btn-back">← 返回用户端</a>
+        <h1>🚧 无障碍社区互助后台</h1>
+        <div>
+            <button id="requestNotifyBtn" class="btn-secondary">🔔 开启通知</button>
+            <a href="index.html" class="btn-back">← 返回用户端</a>
+        </div>
     </div>
 
     <!-- 统计卡片 -->
     <div class="stats-cards">
-        <div class="card">
-            <h3>总上报</h3>
-            <div id="totalCount">0</div>
-        </div>
-        <div class="card">
-            <h3>待处理</h3>
-            <div id="pendingCount">0</div>
-        </div>
-        <div class="card">
-            <h3>已处理</h3>
-            <div id="resolvedCount">0</div>
-        </div>
-        <div class="card">
-            <h3>处理中</h3>
-            <div id="processingCount">0</div>
-        </div>
+        <div class="card"><h3>总上报</h3><div id="totalCount">0</div></div>
+        <div class="card"><h3>待处理</h3><div id="pendingCount">0</div></div>
+        <div class="card"><h3>处理中</h3><div id="processingCount">0</div></div>
+        <div class="card"><h3>已完成</h3><div id="resolvedCount">0</div></div>
     </div>
 
-    <!-- 图表区域 -->
+    <!-- 图表与地图并排 -->
     <div class="charts-container">
         <div id="typeChart" style="height:250px;"></div>
         <div id="trendChartAdmin" style="height:250px;"></div>
     </div>
 
-    <!-- 搜索/筛选栏 -->
+    <!-- 热力图地图容器 -->
+    <div style="padding:0 20px; margin-bottom:20px;">
+        <h3>🔥 障碍物热力分布 <span style="font-size:14px; font-weight:normal; margin-left:10px;">颜色越深上报越密集</span></h3>
+        <div id="heatmapContainer" style="height:250px; width:100%; border-radius:20px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.05);"></div>
+    </div>
+
+    <!-- 批量操作与筛选 -->
     <div class="filter-bar">
         <input type="text" id="searchInput" placeholder="搜索类型或描述...">
         <select id="statusFilter">
             <option value="all">全部状态</option>
             <option value="未处理">未处理</option>
             <option value="处理中">处理中</option>
-            <option value="已处理">已处理</option>
+            <option value="已完成">已完成</option>
         </select>
-        <button id="exportReportBtn" class="btn-secondary">📄 导出周报</button>
+        <select id="batchAction" style="width:auto;">
+            <option value="">批量操作</option>
+            <option value="processing">标记为处理中</option>
+            <option value="resolved">标记为已完成</option>
+        </select>
+        <button id="applyBatchBtn" class="btn-secondary">应用</button>
+        <button id="exportReportBtn" class="btn-secondary">📄 导出PDF周报</button>
         <button id="refreshBtn" class="btn-primary">🔄 刷新</button>
     </div>
 
@@ -59,7 +71,28 @@
     <div id="photoModal" class="modal">
         <div class="modal-content">
             <span class="close-btn" id="closePhotoModal">&times;</span>
-            <img id="modalPhoto" src="" alt="障碍物照片" style="max-width:100%;">
+            <img id="modalPhoto" src="" alt="照片" style="max-width:100%;">
+        </div>
+    </div>
+
+    <!-- 认领/上传完成照片模态框 -->
+    <div id="claimModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" id="closeClaimModal">&times;</span>
+            <h3>🤝 志愿者认领与处理</h3>
+            <input type="hidden" id="claimObstacleId">
+            <label>您的姓名/昵称：</label>
+            <input type="text" id="volunteerName" placeholder="例如：社区志愿者小王" required>
+            <div id="claimActionSection">
+                <p>认领后将状态更新为“处理中”</p>
+                <button id="confirmClaimBtn" class="btn-primary">认领并开始处理</button>
+            </div>
+            <div id="resolveSection" style="display:none;">
+                <label>上传处理后照片：</label>
+                <input type="file" id="resolvedPhotoInput" accept="image/*" capture="environment">
+                <img id="resolvedPreview" style="max-width:100%; max-height:150px; display:none; margin-top:5px;">
+                <button id="confirmResolveBtn" class="btn-primary" style="margin-top:15px;">标记为已完成</button>
+            </div>
         </div>
     </div>
 
