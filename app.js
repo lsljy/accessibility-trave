@@ -8,7 +8,7 @@ let highlightedObstacleMarkers = [];
 // 初始化地图
 // 初始化地图
 function initMap() {
-    map = L.map('map').setView([31.2304, 121.4737], 14); // 默认中心（作为后备）
+    map = L.map('map').setView([26.9005, 112.6423], 17); // 雨母校区核心坐标
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
         attribution: '&copy; OpenStreetMap'
     }).addTo(map);
