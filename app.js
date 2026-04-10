@@ -6,11 +6,42 @@ let currentRouteLayer = null;
 let highlightedObstacleMarkers = [];
 
 // 初始化地图
+// 初始化地图
 function initMap() {
-    map = L.map('map').setView([31.2304, 121.4737], 14);
+    map = L.map('map').setView([31.2304, 121.4737], 14); // 默认中心（作为后备）
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
         attribution: '&copy; OpenStreetMap'
     }).addTo(map);
+    
+    // 新增：自动定位到用户位置
+    locateAndSetView();
+}
+
+// 新增函数：自动定位并设置地图视图（静默执行，不弹出提示）
+function locateAndSetView() {
+    document.getElementById('status').innerText = '📍 正在定位...';
+    if (!navigator.geolocation) {
+        console.warn("浏览器不支持地理定位，使用默认地图中心");
+        return;
+    }
+    navigator.geolocation.getCurrentPosition(
+        (position) => {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            map.setView([lat, lng], 16);
+            // 可选：添加一个定位标记
+            L.marker([lat, lng], {
+                icon: L.divIcon({ className: 'current-location', html: '📍', iconSize: [24, 24] })
+            }).addTo(map).bindPopup('您当前的位置').openPopup();
+            // 语音提示（可选）
+            // speak("已自动定位到您的位置");
+        },
+        (error) => {
+            console.warn("自动定位失败，使用默认地图中心:", error.message);
+            // 定位失败时不打扰用户，保持默认视图
+        },
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+    );
 }
 
 // 语音播报
