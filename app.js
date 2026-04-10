@@ -8,18 +8,14 @@ let startMarker = null;   // 起点标记
 let endMarker = null;     // 终点标记
 
 // 初始化地图
-// 初始化地图
 function initMap() {
-    map = L.map('map').setView([31.2304, 121.4737], 14); // 默认中心（作为后备）
+    map = L.map('map').setView([26.5310, 112.3028], 16);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
         attribution: '&copy; OpenStreetMap'
     }).addTo(map);
-    
-    // 新增：自动定位到用户位置
     locateAndSetView();
 }
 
-// 新增函数：自动定位并设置地图视图（静默执行，不弹出提示）
 function locateAndSetView() {
     document.getElementById('status').innerText = '📍 正在定位...';
     if (!navigator.geolocation) {
@@ -31,22 +27,17 @@ function locateAndSetView() {
             const lat = position.coords.latitude;
             const lng = position.coords.longitude;
             map.setView([lat, lng], 16);
-            // 可选：添加一个定位标记
             L.marker([lat, lng], {
                 icon: L.divIcon({ className: 'current-location', html: '📍', iconSize: [24, 24] })
             }).addTo(map).bindPopup('您当前的位置').openPopup();
-            // 语音提示（可选）
-            // speak("已自动定位到您的位置");
         },
         (error) => {
             console.warn("自动定位失败，使用默认地图中心:", error.message);
-            // 定位失败时不打扰用户，保持默认视图
         },
         { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
     );
 }
 
-// 语音播报
 function speak(text) {
     if (!window.speechSynthesis) return;
     const utterance = new SpeechSynthesisUtterance(text);
@@ -55,14 +46,12 @@ function speak(text) {
     window.speechSynthesis.speak(utterance);
 }
 
-// 震动反馈
 function vibrate(pattern) {
     if (!navigator.vibrate) return;
     const patterns = { 1: [200, 100], 2: [200, 100, 200], 3: [500], 4: [500, 200, 500] };
     navigator.vibrate(patterns[pattern] || 200);
 }
 
-// 添加POI标记
 function addPoiMarkers() {
     poiList.forEach(poi => {
         const color = poi.score >= 4 ? '#34c759' : (poi.score >= 3 ? '#ff9500' : '#ff3b30');
@@ -89,7 +78,6 @@ function createPopupContent(poi) {
     `;
 }
 
-// 添加障碍物标记
 function updateObstacleMarkers() {
     obstacleMarkers.forEach(m => map.removeLayer(m));
     obstacleMarkers = [];
@@ -108,11 +96,11 @@ function updateObstacleMarkers() {
     });
 }
 
-// ========== 成员A新增：路径规划增强 ==========
 function getAvoidTypes() {
     const checks = document.querySelectorAll('.avoid-type:checked');
     return Array.from(checks).map(cb => cb.value);
 }
+
 function getRampPrefer() {
     return document.getElementById('rampPrefer')?.checked || false;
 }
@@ -208,11 +196,19 @@ function findNodeIdByName(name) {
     return null;
 }
 
-// 导航函数（增强版）
 window.navigateTo = function(lat, lng, name) {
-    const startName = "市民中心图书馆";
-    const startId = findNodeIdByName(startName);
-    const endId = findNodeIdByName(name);
+    let closestNodeId = null;
+    let minDist = Infinity;
+    for (let id in graph.nodes) {
+        const node = graph.nodes[id];
+        const dist = Math.hypot(node.lat - lat, node.lng - lng);
+        if (dist < minDist) {
+            minDist = dist;
+            closestNodeId = parseInt(id);
+        }
+    }
+    const startId = findNodeIdByName("西门") || 1;
+    const endId = closestNodeId;
     if (!startId || !endId) {
         speak("无法规划路线，请重试");
         return;
@@ -241,12 +237,10 @@ window.navigateTo = function(lat, lng, name) {
     document.getElementById('status').innerText = msg;
     speak(msg);
     vibrate(3);
-    // 沿途预警
     highlightObstaclesAlongRoute(latlngs);
     speakRouteWarnings(latlngs);
 };
 
-// 沿途障碍物高亮
 function highlightObstaclesAlongRoute(routeLatLngs) {
     if (window.highlightedMarkers) {
         window.highlightedMarkers.forEach(m => {
@@ -295,7 +289,6 @@ function speakRouteWarnings(routeLatLngs) {
     }
 }
 
-// ========== 成员A新增：实时设施状态联动 ==========
 function renderFacilityPanel() {
     const container = document.getElementById('facilityList');
     if (!container) return;
@@ -330,16 +323,13 @@ function renderFacilityPanel() {
     });
 }
 
-// ========== 成员A新增：语音交互问答 ==========
 function processVoiceCommand(command) {
     const lowerCmd = command.toLowerCase();
-    // 导航意图
     const matchedPoi = poiList.find(poi => lowerCmd.includes(poi.name.toLowerCase()));
     if (matchedPoi) {
         navigateTo(matchedPoi.lat, matchedPoi.lng, matchedPoi.name);
         return;
     }
-    // 附近无障碍设施问答
     if (lowerCmd.includes('附近') && (lowerCmd.includes('无障碍') || lowerCmd.includes('设施') || lowerCmd.includes('电梯') || lowerCmd.includes('坡道'))) {
         const center = map.getCenter();
         const nearby = poiList.filter(poi => {
@@ -364,7 +354,7 @@ function processVoiceCommand(command) {
         else speak("当前暂无电梯正常运行的场所");
         return;
     }
-    speak("未识别指令，您可以尝试说“导航到第一人民医院”或“附近有哪些无障碍设施”");
+    speak("未识别指令，您可以尝试说“导航到图书馆”或“附近有哪些无障碍设施”");
 }
 
 function voiceNavigation() {
@@ -382,9 +372,8 @@ function voiceNavigation() {
     recognition.start();
 }
 
-// ========== 原有功能（SOS、上报、数据看板等） ==========
 function sos() {
-    const msg = "SOS求助！已通知社区管理员（模拟）。当前位置：市民中心图书馆附近。";
+    const msg = "SOS求助！已通知社区管理员（模拟）。当前位置：南华大学雨母校区。";
     speak(msg);
     document.getElementById('status').innerHTML = `<span style="color:red;">🚨 ${msg}</span>`;
     vibrate(4);
@@ -435,210 +424,20 @@ function locateUser() {
     );
 }
 
-// 页面初始化
-document.addEventListener('DOMContentLoaded', () => {
-    const photoInput = document.getElementById('obstaclePhoto');
-    if (photoInput) {
-        photoInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = (ev) => {
-                    document.getElementById('photoPreview').src = ev.target.result;
-                    document.getElementById('photoPreview').style.display = 'block';
-                };
-                reader.readAsDataURL(file);
-            }
-        });
-    }
-    document.getElementById('reportForm').addEventListener('submit', (e) => {
-        e.preventDefault();
-        const type = document.getElementById('obstacleType').value;
-        const desc = document.getElementById('obstacleDesc').value;
-        const photoData = document.getElementById('photoPreview').src;
-        const lat = parseFloat(document.getElementById('obstacleLat').value);
-        const lng = parseFloat(document.getElementById('obstacleLng').value);
-        const newObstacle = { id: Date.now(), lat, lng, type: type, description: desc, status: "未处理", reportTime: new Date().toISOString().slice(0, 10), photo: photoData || null };
-        obstacles.push(newObstacle);
-        saveObstacles();
-        updateObstacleMarkers();
-        document.getElementById('reportModal').style.display = 'none';
-        speak("感谢上报，管理员会尽快处理");
-        vibrate(1);
-        document.getElementById('reportForm').reset();
-        document.getElementById('photoPreview').style.display = 'none';
-    });
-});
-
-window.onload = () => {
-    initMap();
-    addPoiMarkers();
-    updateObstacleMarkers();
-    renderFacilityPanel();
-
-    document.getElementById('voiceBtn').onclick = voiceNavigation;
-    document.getElementById('sosBtn').onclick = sos;
-    document.getElementById('reportBtn').onclick = showReportModal;
-    document.getElementById('statsBtn').onclick = showStats;
-    document.getElementById('closeModal').onclick = () => document.getElementById('chartModal').style.display = 'none';
-    document.getElementById('closeReportModal').onclick = () => document.getElementById('reportModal').style.display = 'none';
-    document.getElementById('agreePrivacy').onclick = () => document.getElementById('privacyModal').style.display = 'none';
-    document.getElementById('locateBtn').onclick = locateUser;
-// 新增搜索路线按钮
-document.getElementById('searchRouteBtn').addEventListener('click', planRealRoute);
-// 使用我的位置
-document.getElementById('useMyLocationBtn').addEventListener('click', useMyLocationAsStart);
-// 清除路线
-document.getElementById('clearRouteBtn').addEventListener('click', () => {
-    clearRoute();
-    speak('路线已清除');
-});
-
-    const contrastBtn = document.getElementById('contrastBtn');
-    if (loadContrastPref()) document.body.classList.add('high-contrast');
-    contrastBtn.onclick = () => {
-        document.body.classList.toggle('high-contrast');
-        saveContrastPref(document.body.classList.contains('high-contrast'));
-    };
-    document.getElementById('clearDataBtn').onclick = () => {
-        if (confirm('清除所有本地数据？不可恢复。')) {
-            localStorage.clear();
-            location.reload();
-        }
-    };
-    window.onclick = (e) => { if (e.target.classList.contains('modal')) e.target.style.display = 'none'; };
-
-    // 模拟设施状态实时更新（每30秒）
-    setInterval(() => {
-        const keys = Object.keys(facilityStatus);
-        const randomKey = keys[Math.floor(Math.random() * keys.length)];
-        const newElevator = Math.random() > 0.5 ? "正常" : "维修中";
-        const newRamp = Math.random() > 0.5 ? "正常" : "维修中";
-        facilityStatus[randomKey] = { elevator: newElevator, ramp: newRamp };
-        poiMarkers.forEach((marker, idx) => { marker.getPopup().setContent(createPopupContent(poiList[idx])); });
-        renderFacilityPanel();
-        document.getElementById('refreshIndicator').style.opacity = '0.6';
-        setTimeout(() => document.getElementById('refreshIndicator').style.opacity = '1', 300);
-    }, 30000);
-};
-
-// 路线规划功能
-清除旧路线
 function clearRoute() {
     if (currentRouteLayer) map.removeLayer(currentRouteLayer);
     if (startMarker) map.removeLayer(startMarker);
     if (endMarker) map.removeLayer(endMarker);
     startMarker = endMarker = null;
     document.getElementById('status').innerText = '👋 欢迎使用无障碍出行伴侣';
-    // 重置障碍物高亮
     if (window.highlightedMarkers) {
-        window.highlightedMarkers.forEach(m => m.setIcon(L.divIcon({ className: 'obstacle-marker', html: '⚠️', iconSize: [24, 24] })));
-    }
-}
-
-// 真正的路线规划（使用 OSRM）
-async function planRealRoute() {
-    const startAddr = document.getElementById('startAddress').value.trim();
-    const endAddr = document.getElementById('endAddress').value.trim();
-    if (!startAddr || !endAddr) {
-        alert('请输入起点和终点地址');
-        return;
-    }
-    
-    document.getElementById('status').innerText = '🔍 正在解析地址并规划路线...';
-    
-    // 解析坐标
-    const startCoord = await geocodeAddress(startAddr);
-    const endCoord = await geocodeAddress(endAddr);
-    if (!startCoord || !endCoord) {
-        document.getElementById('status').innerText = '❌ 地址解析失败';
-        return;
-    }
-    
-    // 清除旧路线
-    clearRoute();
-    
-    // 添加起点/终点标记
-    startMarker = L.marker([startCoord.lat, startCoord.lng], {
-        icon: L.divIcon({ className: 'route-marker', html: '🚩', iconSize: [28, 28] })
-    }).addTo(map).bindPopup(`<b>起点</b><br>${startAddr}`);
-    
-    endMarker = L.marker([endCoord.lat, endCoord.lng], {
-        icon: L.divIcon({ className: 'route-marker', html: '🏁', iconSize: [28, 28] })
-    }).addTo(map).bindPopup(`<b>终点</b><br>${endAddr}`);
-    
-    // 获取路线
-    const route = await getOSRMRoute(startCoord, endCoord);
-    if (!route) {
-        alert('在线路径规划失败，将使用直线距离（仅供参考）');
-        // 降级：绘制直线
-        const latlngs = [[startCoord.lat, startCoord.lng], [endCoord.lat, endCoord.lng]];
-        currentRouteLayer = L.polyline(latlngs, { color: 'red', weight: 4, dashArray: '5, 10' }).addTo(map);
-        map.fitBounds(currentRouteLayer.getBounds());
-        const distance = getDistance(startCoord, endCoord).toFixed(2);
-        document.getElementById('status').innerText = `直线距离约 ${distance} 公里（无法获取步行路线）`;
-        speak(`直线距离约 ${distance} 公里，请参考地图`);
-        return;
-    }
-    
-    // 绘制 OSRM 路线
-    const geojson = route.geometry;
-    currentRouteLayer = L.geoJSON(geojson, { 
-        style: { color: '#007aff', weight: 6, opacity: 0.8 }
-    }).addTo(map);
-    
-    map.fitBounds(currentRouteLayer.getBounds());
-    
-    const distance = (route.distance / 1000).toFixed(2);
-    const duration = Math.round(route.duration / 60);
-    const wheelchairMode = document.getElementById('wheelchairModeSearch').checked;
-    const modeText = wheelchairMode ? '轮椅优先模式' : '普通模式';
-    
-    const msg = `路线规划成功（${modeText}），全程约 ${distance} 公里，预计步行 ${duration} 分钟。`;
-    document.getElementById('status').innerText = msg;
-    speak(msg);
-    vibrate(3);
-    
-
-}
-
-    // 沿途障碍物预警
-   function warnObstaclesAlongGeoJSON(geojson) {
-    const coords = [];
-    if (geojson.type === 'LineString') {
-        geojson.coordinates.forEach(c => coords.push({ lng: c[0], lat: c[1] }));
-    }
-    
-    const threshold = 0.002; // 约200米
-    const nearby = obstacles.filter(obs => {
-        return coords.some(c => Math.hypot(c.lat - obs.lat, c.lng - obs.lng) < threshold);
-    });
-    
-    if (nearby.length) {
-        const types = [...new Set(nearby.map(o => o.type))];
-        speak(`沿途附近有${nearby.length}处障碍物，类型包括${types.join('、')}，请小心通行`);
-        vibrate(4);
-        // 高亮障碍物
-        highlightNearbyObstacles(nearby);
-    }
-    // 在 planRealRoute 末尾添加
-warnObstaclesAlongGeoJSON(geojson);
-}
-
-function highlightNearbyObstacles(obsArray) {
-    obstacleMarkers.forEach(m => m.setIcon(L.divIcon({ className: 'obstacle-marker', html: '⚠️', iconSize: [24, 24] })));
-    obsArray.forEach(obs => {
-        const marker = obstacleMarkers.find(m => {
-            const pos = m.getLatLng();
-            return Math.abs(pos.lat - obs.lat) < 0.0001 && Math.abs(pos.lng - obs.lng) < 0.0001;
+        window.highlightedMarkers.forEach(m => {
+            if (m && m.setIcon) m.setIcon(L.divIcon({ className: 'obstacle-marker', html: '⚠️', iconSize: [24, 24] }));
         });
-        if (marker) {
-            marker.setIcon(L.divIcon({ className: 'obstacle-marker obstacle-highlight', html: '🔴⚠️', iconSize: [28, 28] }));
-        }
-    });
+        window.highlightedMarkers = [];
+    }
 }
 
-// 计算两点直线距离（降级备用）
 function getDistance(coord1, coord2) {
     const R = 6371;
     const dLat = (coord2.lat - coord1.lat) * Math.PI / 180;
@@ -650,12 +449,11 @@ function getDistance(coord1, coord2) {
     return R * c;
 }
 
-// 地址转坐标（使用 Nominatim）
 async function geocodeAddress(address) {
     const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`;
     try {
         const response = await fetch(url, {
-            headers: { 'User-Agent': 'AccessibilityTravelCompanion/1.0 (your_email@example.com)' }
+            headers: { 'User-Agent': 'AccessibilityTravelCompanion/1.0' }
         });
         const data = await response.json();
         if (data.length > 0) {
@@ -665,17 +463,16 @@ async function geocodeAddress(address) {
         }
     } catch (error) {
         console.error('地理编码失败:', error);
-        alert('地址解析失败，请尝试更具体的名称（例如“衡阳火车站”）');
+        alert('地址解析失败，请尝试更具体的名称');
         return null;
     }
 }
 
-// 反向地理编码（坐标→地址，用于“使用我的位置”）
 async function reverseGeocode(lat, lng) {
     const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`;
     try {
         const res = await fetch(url, {
-            headers: { 'User-Agent': 'AccessibilityTravelCompanion/1.0 (your_email@example.com)' }
+            headers: { 'User-Agent': 'AccessibilityTravelCompanion/1.0' }
         });
         const data = await res.json();
         return data.display_name || `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
@@ -684,9 +481,7 @@ async function reverseGeocode(lat, lng) {
     }
 }
 
-// 调用 OSRM 获取步行路线
 async function getOSRMRoute(startCoords, endCoords) {
-    // OSRM 坐标格式：lng,lat
     const url = `https://router.project-osrm.org/route/v1/foot/${startCoords.lng},${startCoords.lat};${endCoords.lng},${endCoords.lat}?overview=full&geometries=geojson&steps=true`;
     try {
         const response = await fetch(url);
@@ -701,6 +496,7 @@ async function getOSRMRoute(startCoords, endCoords) {
         return null;
     }
 }
+
 async function useMyLocationAsStart() {
     if (!navigator.geolocation) {
         alert('浏览器不支持定位');
@@ -719,3 +515,161 @@ async function useMyLocationAsStart() {
         document.getElementById('status').innerText = '❌ 定位失败';
     }, { enableHighAccuracy: true, timeout: 10000 });
 }
+
+async function planRealRoute() {
+    const startAddr = document.getElementById('startAddress').value.trim();
+    const endAddr = document.getElementById('endAddress').value.trim();
+    if (!startAddr || !endAddr) {
+        alert('请输入起点和终点地址');
+        return;
+    }
+    document.getElementById('status').innerText = '🔍 正在解析地址并规划路线...';
+    const startCoord = await geocodeAddress(startAddr);
+    const endCoord = await geocodeAddress(endAddr);
+    if (!startCoord || !endCoord) {
+        document.getElementById('status').innerText = '❌ 地址解析失败';
+        return;
+    }
+    clearRoute();
+    startMarker = L.marker([startCoord.lat, startCoord.lng], {
+        icon: L.divIcon({ className: 'route-marker', html: '🚩', iconSize: [28, 28] })
+    }).addTo(map).bindPopup(`<b>起点</b><br>${startAddr}`);
+    endMarker = L.marker([endCoord.lat, endCoord.lng], {
+        icon: L.divIcon({ className: 'route-marker', html: '🏁', iconSize: [28, 28] })
+    }).addTo(map).bindPopup(`<b>终点</b><br>${endAddr}`);
+    const route = await getOSRMRoute(startCoord, endCoord);
+    if (!route) {
+        alert('在线路径规划失败，将使用直线距离');
+        const latlngs = [[startCoord.lat, startCoord.lng], [endCoord.lat, endCoord.lng]];
+        currentRouteLayer = L.polyline(latlngs, { color: 'red', weight: 4, dashArray: '5, 10' }).addTo(map);
+        map.fitBounds(currentRouteLayer.getBounds());
+        const distance = getDistance(startCoord, endCoord).toFixed(2);
+        document.getElementById('status').innerText = `直线距离约 ${distance} 公里`;
+        speak(`直线距离约 ${distance} 公里`);
+        return;
+    }
+    const geojson = route.geometry;
+    currentRouteLayer = L.geoJSON(geojson, { style: { color: '#007aff', weight: 6, opacity: 0.8 } }).addTo(map);
+    map.fitBounds(currentRouteLayer.getBounds());
+    const distance = (route.distance / 1000).toFixed(2);
+    const duration = Math.round(route.duration / 60);
+    const wheelchairMode = document.getElementById('wheelchairModeSearch').checked;
+    const modeText = wheelchairMode ? '轮椅优先模式' : '普通模式';
+    const msg = `路线规划成功（${modeText}），全程约 ${distance} 公里，预计步行 ${duration} 分钟。`;
+    document.getElementById('status').innerText = msg;
+    speak(msg);
+    vibrate(3);
+    warnObstaclesAlongGeoJSON(geojson);
+}
+
+function warnObstaclesAlongGeoJSON(geojson) {
+    const coords = [];
+    if (geojson.type === 'LineString') {
+        geojson.coordinates.forEach(c => coords.push({ lng: c[0], lat: c[1] }));
+    }
+    const threshold = 0.002;
+    const nearby = obstacles.filter(obs => {
+        return coords.some(c => Math.hypot(c.lat - obs.lat, c.lng - obs.lng) < threshold);
+    });
+    if (nearby.length) {
+        const types = [...new Set(nearby.map(o => o.type))];
+        speak(`沿途附近有${nearby.length}处障碍物，类型包括${types.join('、')}，请小心通行`);
+        vibrate(4);
+        highlightNearbyObstacles(nearby);
+    }
+}
+
+function highlightNearbyObstacles(obsArray) {
+    obstacleMarkers.forEach(m => m.setIcon(L.divIcon({ className: 'obstacle-marker', html: '⚠️', iconSize: [24, 24] })));
+    obsArray.forEach(obs => {
+        const marker = obstacleMarkers.find(m => {
+            const pos = m.getLatLng();
+            return Math.abs(pos.lat - obs.lat) < 0.0001 && Math.abs(pos.lng - obs.lng) < 0.0001;
+        });
+        if (marker) {
+            marker.setIcon(L.divIcon({ className: 'obstacle-marker obstacle-highlight', html: '🔴⚠️', iconSize: [28, 28] }));
+        }
+    });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const photoInput = document.getElementById('obstaclePhoto');
+    if (photoInput) {
+        photoInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    document.getElementById('photoPreview').src = ev.target.result;
+                    document.getElementById('photoPreview').style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    }
+    const reportForm = document.getElementById('reportForm');
+    if (reportForm) {
+        reportForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const type = document.getElementById('obstacleType').value;
+            const desc = document.getElementById('obstacleDesc').value;
+            const photoData = document.getElementById('photoPreview').src;
+            const lat = parseFloat(document.getElementById('obstacleLat').value);
+            const lng = parseFloat(document.getElementById('obstacleLng').value);
+            const newObstacle = { id: Date.now(), lat, lng, type: type, description: desc, status: "未处理", reportTime: new Date().toISOString().slice(0, 10), photo: photoData || null };
+            obstacles.push(newObstacle);
+            saveObstacles();
+            updateObstacleMarkers();
+            document.getElementById('reportModal').style.display = 'none';
+            speak("感谢上报，管理员会尽快处理");
+            vibrate(1);
+            reportForm.reset();
+            document.getElementById('photoPreview').style.display = 'none';
+        });
+    }
+});
+
+window.onload = () => {
+    initMap();
+    addPoiMarkers();
+    updateObstacleMarkers();
+    renderFacilityPanel();
+    if (document.getElementById('voiceBtn')) document.getElementById('voiceBtn').onclick = voiceNavigation;
+    if (document.getElementById('sosBtn')) document.getElementById('sosBtn').onclick = sos;
+    if (document.getElementById('reportBtn')) document.getElementById('reportBtn').onclick = showReportModal;
+    if (document.getElementById('statsBtn')) document.getElementById('statsBtn').onclick = showStats;
+    if (document.getElementById('closeModal')) document.getElementById('closeModal').onclick = () => document.getElementById('chartModal').style.display = 'none';
+    if (document.getElementById('closeReportModal')) document.getElementById('closeReportModal').onclick = () => document.getElementById('reportModal').style.display = 'none';
+    if (document.getElementById('agreePrivacy')) document.getElementById('agreePrivacy').onclick = () => document.getElementById('privacyModal').style.display = 'none';
+    if (document.getElementById('locateBtn')) document.getElementById('locateBtn').onclick = locateUser;
+    if (document.getElementById('searchRouteBtn')) document.getElementById('searchRouteBtn').addEventListener('click', planRealRoute);
+    if (document.getElementById('useMyLocationBtn')) document.getElementById('useMyLocationBtn').addEventListener('click', useMyLocationAsStart);
+    if (document.getElementById('clearRouteBtn')) document.getElementById('clearRouteBtn').addEventListener('click', () => { clearRoute(); speak('路线已清除'); });
+    if (document.getElementById('contrastBtn')) {
+        if (loadContrastPref()) document.body.classList.add('high-contrast');
+        document.getElementById('contrastBtn').onclick = () => {
+            document.body.classList.toggle('high-contrast');
+            saveContrastPref(document.body.classList.contains('high-contrast'));
+        };
+    }
+    if (document.getElementById('clearDataBtn')) {
+        document.getElementById('clearDataBtn').onclick = () => {
+            if (confirm('清除所有本地数据？不可恢复。')) {
+                localStorage.clear();
+                location.reload();
+            }
+        };
+    }
+    window.onclick = (e) => { if (e.target.classList.contains('modal')) e.target.style.display = 'none'; };
+    setInterval(() => {
+        const keys = Object.keys(facilityStatus);
+        const randomKey = keys[Math.floor(Math.random() * keys.length)];
+        const newElevator = Math.random() > 0.5 ? "正常" : "维修中";
+        const newRamp = Math.random() > 0.5 ? "正常" : "维修中";
+        facilityStatus[randomKey] = { elevator: newElevator, ramp: newRamp };
+        poiMarkers.forEach((marker, idx) => { if (marker && marker.getPopup) marker.getPopup().setContent(createPopupContent(poiList[idx])); });
+        renderFacilityPanel();
+        document.getElementById('refreshIndicator').style.opacity = '0.6';
+        setTimeout(() => document.getElementById('refreshIndicator').style.opacity = '1', 300);
+    }, 30000);
+};
