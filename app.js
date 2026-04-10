@@ -391,12 +391,33 @@ function sos() {
     alert(msg);
 }
 
-function showReportModal() {
+// 上报模态框（增强版：显示具体地点名称）
+async function showReportModal() {
     const center = map.getCenter();
-    document.getElementById('obstacleLat').value = center.lat.toFixed(6);
-    document.getElementById('obstacleLng').value = center.lng.toFixed(6);
-    document.getElementById('locationHint').innerText = `📍 位置：${center.lat.toFixed(4)}, ${center.lng.toFixed(4)}`;
+    const lat = center.lat;
+    const lng = center.lng;
+    
+    // 设置隐藏字段
+    document.getElementById('obstacleLat').value = lat.toFixed(6);
+    document.getElementById('obstacleLng').value = lng.toFixed(6);
+    
+    // 显示经纬度
+    document.getElementById('reportLocationCoords').innerText = `经度: ${lng.toFixed(6)}, 纬度: ${lat.toFixed(6)}`;
+    document.getElementById('reportLocationName').innerText = '正在获取地点名称...';
+    
+    // 显示模态框
     document.getElementById('reportModal').style.display = 'flex';
+    
+    // 异步获取地址名称
+    try {
+        const addr = await reverseGeocode(lat, lng);
+        document.getElementById('reportLocationName').innerHTML = `<strong>${addr}</strong>`;
+    } catch (e) {
+        document.getElementById('reportLocationName').innerText = '无法获取地点名称';
+    }
+    
+    // 原有的 locationHint 也可以同步更新（可选）
+    document.getElementById('locationHint').innerText = `📍 位置：${lat.toFixed(4)}, ${lng.toFixed(4)}`;
 }
 
 function showStats() {

@@ -524,3 +524,11 @@ th {
 #routePlan button:hover {
   background: #0066cc;
 }
+
+#reportLocationInfo {
+    background: #f0f7ff;
+    padding: 10px;
+    border-radius: 12px;
+    margin-bottom: 15px;
+    border-left: 4px solid #007aff;
+}

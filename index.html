@@ -97,6 +97,12 @@
         <div class="modal-content">
             <span class="close-btn" id="closeReportModal">&times;</span>
             <h3>📝 上报障碍物</h3>
+             <div id="reportLocationInfo" style="background: #f0f7ff; padding: 10px; border-radius: 12px; margin-bottom: 15px; font-size: 14px;">
+            <strong>📍 障碍物所在地点：</strong><br>
+            <span id="reportLocationName">正在获取位置...</span><br>
+            <span id="reportLocationCoords" style="color: #666;"></span>
+        </div>
+        <form id="reportForm">
             <form id="reportForm">
                 <label>障碍类型：</label>
                 <select id="obstacleType" required>
