@@ -38,10 +38,10 @@ function addPoiMarkers() {
     poiList.forEach(poi => {
         const color = poi.score >= 4 ? '#34c759' : (poi.score >= 3 ? '#ff9500' : '#ff3b30');
         const marker = L.marker([poi.lat, poi.lng], {
-            icon: L.divIcon({ 
-                className: 'custom-poi', 
-                html: `<div style="background:${color}; width:16px; height:16px; border-radius:50%; border:3px solid white; box-shadow:0 2px 6px rgba(0,0,0,0.2);"></div>`, 
-                iconSize: [16,16] 
+            icon: L.divIcon({
+                className: 'custom-poi',
+                html: `<div style="background:${color}; width:16px; height:16px; border-radius:50%; border:3px solid white; box-shadow:0 2px 6px rgba(0,0,0,0.2);"></div>`,
+                iconSize: [16, 16]
             })
         }).addTo(map);
         marker.bindPopup(createPopupContent(poi));
@@ -65,14 +65,14 @@ function updateObstacleMarkers() {
     obstacleMarkers = [];
     obstacles.forEach(obs => {
         const marker = L.marker([obs.lat, obs.lng], {
-            icon: L.divIcon({ className: 'obstacle-marker', html: '⚠️', iconSize: [24,24] })
+            icon: L.divIcon({ className: 'obstacle-marker', html: '⚠️', iconSize: [24, 24] })
         }).addTo(map);
         marker.bindPopup(`
             <b>🚧 ${obs.type}</b><br>
             ${obs.description ? '📝 ' + obs.description + '<br>' : ''}
             状态: ${obs.status}<br>
             上报: ${obs.reportTime}
-            ${obs.photo ? '<br><img src="'+obs.photo+'" style="max-width:100%; margin-top:5px;">' : ''}
+            ${obs.photo ? '<br><img src="' + obs.photo + '" style="max-width:100%; margin-top:5px;">' : ''}
         `);
         obstacleMarkers.push(marker);
     });
@@ -82,7 +82,7 @@ function updateObstacleMarkers() {
 function findAccessiblePath(startNodeId, endNodeId, wheelchairMode = true) {
     const nodes = graph.nodes;
     const edges = graph.edges;
-    
+
     // 构建邻接表
     const adj = {};
     Object.keys(nodes).forEach(id => adj[id] = []);
@@ -96,9 +96,9 @@ function findAccessiblePath(startNodeId, endNodeId, wheelchairMode = true) {
     Object.keys(nodes).forEach(id => { dist[id] = Infinity; prev[id] = null; });
     dist[startNodeId] = 0;
     const pq = [{ id: startNodeId, dist: 0 }];
-    
+
     while (pq.length) {
-        pq.sort((a,b) => a.dist - b.dist);
+        pq.sort((a, b) => a.dist - b.dist);
         const current = pq.shift();
         if (current.id == endNodeId) break;
         adj[current.id].forEach(neighbor => {
@@ -110,7 +110,7 @@ function findAccessiblePath(startNodeId, endNodeId, wheelchairMode = true) {
             }
         });
     }
-    
+
     // 回溯路径
     const path = [];
     let u = endNodeId;
@@ -140,10 +140,10 @@ function navigateTo(lat, lng, name) {
         speak("无法规划路线，请重试");
         return;
     }
-    
+
     const wheelchairMode = document.getElementById('wheelchairMode').checked;
     const result = findAccessiblePath(startId, endId, wheelchairMode);
-    
+
     if (result.path.length < 2) {
         const msg = wheelchairMode ? "未找到无障碍路线，请尝试关闭轮椅优先模式" : "未找到路线";
         document.getElementById('status').innerText = msg;
@@ -151,21 +151,21 @@ function navigateTo(lat, lng, name) {
         vibrate(4);
         return;
     }
-    
+
     // 绘制路线
     if (currentRouteLayer) map.removeLayer(currentRouteLayer);
     const latlngs = result.path.map(p => [p.lat, p.lng]);
     currentRouteLayer = L.polyline(latlngs, { color: wheelchairMode ? '#007aff' : '#ff9500', weight: 6 }).addTo(map);
     map.fitBounds(currentRouteLayer.getBounds());
-    
+
     // 生成导航指令
-    const steps = result.path.map((p,i) => i === 0 ? `从${p.name}出发` : `前往${p.name}`);
+    const steps = result.path.map((p, i) => i === 0 ? `从${p.name}出发` : `前往${p.name}`);
     const distance = result.distance.toFixed(1);
-    const msg = `路线规划成功，全程约${distance}公里，${wheelchairMode?'轮椅优先模式':'普通模式'}。` + steps.join('，');
+    const msg = `路线规划成功，全程约${distance}公里，${wheelchairMode ? '轮椅优先模式' : '普通模式'}。` + steps.join('，');
     document.getElementById('status').innerText = msg;
     speak(msg);
     vibrate(3);
-    
+
     // 检查沿途障碍物并警告
     const hasObstacle = obstacles.some(obs => {
         return result.path.some(node => Math.abs(node.lat - obs.lat) < 0.005 && Math.abs(node.lng - obs.lng) < 0.005);
@@ -231,7 +231,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
-    
+
     // 上报表单提交
     document.getElementById('reportForm').addEventListener('submit', (e) => {
         e.preventDefault();
@@ -240,14 +240,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const photoData = document.getElementById('photoPreview').src;
         const lat = parseFloat(document.getElementById('obstacleLat').value);
         const lng = parseFloat(document.getElementById('obstacleLng').value);
-        
+
         const newObstacle = {
             id: Date.now(),
             lat, lng,
             type: type,
             description: desc,
             status: "未处理",
-            reportTime: new Date().toISOString().slice(0,10),
+            reportTime: new Date().toISOString().slice(0, 10),
             photo: photoData || null
         };
         obstacles.push(newObstacle);
@@ -278,16 +278,16 @@ function showStats() {
             ]
         }]
     });
-    
+
     // 统计最近7天上报趋势（基于obstacles真实数据简化）
     const days = [];
     const counts = [];
     for (let i = 6; i >= 0; i--) {
         const d = new Date();
         d.setDate(d.getDate() - i);
-        const dateStr = d.toISOString().slice(5,10);
+        const dateStr = d.toISOString().slice(5, 10);
         days.push(dateStr);
-        const count = obstacles.filter(o => o.reportTime === d.toISOString().slice(0,10)).length;
+        const count = obstacles.filter(o => o.reportTime === d.toISOString().slice(0, 10)).length;
         counts.push(count);
     }
     const trendChart = echarts.init(document.getElementById('trendChart'));
@@ -304,7 +304,7 @@ window.onload = () => {
     initMap();
     addPoiMarkers();
     updateObstacleMarkers();
-    
+
     // 绑定事件
     document.getElementById('voiceBtn').onclick = voiceNavigation;
     document.getElementById('sosBtn').onclick = sos;
@@ -313,7 +313,8 @@ window.onload = () => {
     document.getElementById('closeModal').onclick = () => document.getElementById('chartModal').style.display = 'none';
     document.getElementById('closeReportModal').onclick = () => document.getElementById('reportModal').style.display = 'none';
     document.getElementById('agreePrivacy').onclick = () => document.getElementById('privacyModal').style.display = 'none';
-    
+    document.getElementById('locateBtn').onclick = locateUser;
+
     // 高对比度切换
     const contrastBtn = document.getElementById('contrastBtn');
     if (loadContrastPref()) document.body.classList.add('high-contrast');
@@ -321,7 +322,7 @@ window.onload = () => {
         document.body.classList.toggle('high-contrast');
         saveContrastPref(document.body.classList.contains('high-contrast'));
     };
-    
+
     // 清除数据
     document.getElementById('clearDataBtn').onclick = () => {
         if (confirm('清除所有本地数据？不可恢复。')) {
@@ -329,12 +330,12 @@ window.onload = () => {
             location.reload();
         }
     };
-    
+
     // 点击模态框背景关闭
     window.onclick = (e) => {
         if (e.target.classList.contains('modal')) e.target.style.display = 'none';
     };
-    
+
     // 模拟实时状态变化
     setInterval(() => {
         const keys = Object.keys(facilityStatus);
@@ -348,3 +349,33 @@ window.onload = () => {
         });
     }, 30000);
 };
+
+
+// 定位到用户当前位置
+function locateUser() {
+    if (!navigator.geolocation) {
+        alert("您的浏览器不支持地理定位");
+        return;
+    }
+    navigator.geolocation.getCurrentPosition(
+        (position) => {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            // 将地图中心移动到用户位置
+            map.setView([lat, lng], 16);
+            // 添加一个标记表示当前位置
+            L.marker([lat, lng], {
+                icon: L.divIcon({
+                    className: 'current-location',
+                    html: '📍',
+                    iconSize: [24, 24]
+                })
+            }).addTo(map).bindPopup('您当前的位置').openPopup();
+            speak("已定位到您的位置");
+        },
+        (error) => {
+            alert("定位失败：" + error.message);
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+    );
+}
