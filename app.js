@@ -14,7 +14,7 @@ function initMap() {
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
         attribution: '&copy; OpenStreetMap'
     }).addTo(map);
-    
+
     // 新增：自动定位到用户位置
     locateAndSetView();
 }
@@ -139,7 +139,7 @@ function isEdgeBlockedByAvoidTypes(edge, avoidTypes) {
     if (!fromNode || !toNode) return false;
     for (let obs of obstacles) {
         if (avoidTypes.includes(obs.type)) {
-            const dist = pointToSegmentDistance({lat: obs.lat, lng: obs.lng}, fromNode, toNode);
+            const dist = pointToSegmentDistance({ lat: obs.lat, lng: obs.lng }, fromNode, toNode);
             if (dist < 0.003) return true;
         }
     }
@@ -209,7 +209,7 @@ function findNodeIdByName(name) {
 }
 
 // 导航函数（增强版）
-window.navigateTo = function(lat, lng, name) {
+window.navigateTo = function (lat, lng, name) {
     const startName = "市民中心图书馆";
     const startId = findNodeIdByName(startName);
     const endId = findNodeIdByName(name);
@@ -217,7 +217,6 @@ window.navigateTo = function(lat, lng, name) {
         speak("无法规划路线，请重试");
         return;
     }
-    const wheelchairMode = document.getElementById('wheelchairMode').checked;
     const avoidTypes = getAvoidTypes();
     const rampPrefer = getRampPrefer();
     const result = findAccessiblePath(startId, endId, wheelchairMode, avoidTypes, rampPrefer);
@@ -259,7 +258,7 @@ function highlightObstaclesAlongRoute(routeLatLngs) {
         let minDist = Infinity;
         for (let i = 0; i < routeLatLngs.length - 1; i++) {
             const p1 = { lat: routeLatLngs[i][0], lng: routeLatLngs[i][1] };
-            const p2 = { lat: routeLatLngs[i+1][0], lng: routeLatLngs[i+1][1] };
+            const p2 = { lat: routeLatLngs[i + 1][0], lng: routeLatLngs[i + 1][1] };
             const dist = pointToSegmentDistance(obs, p1, p2);
             if (dist < minDist) minDist = dist;
         }
@@ -282,7 +281,7 @@ function speakRouteWarnings(routeLatLngs) {
         let minDist = Infinity;
         for (let i = 0; i < routeLatLngs.length - 1; i++) {
             const p1 = { lat: routeLatLngs[i][0], lng: routeLatLngs[i][1] };
-            const p2 = { lat: routeLatLngs[i+1][0], lng: routeLatLngs[i+1][1] };
+            const p2 = { lat: routeLatLngs[i + 1][0], lng: routeLatLngs[i + 1][1] };
             const dist = pointToSegmentDistance(obs, p1, p2);
             if (dist < minDist) minDist = dist;
         }
@@ -396,18 +395,18 @@ async function showReportModal() {
     const center = map.getCenter();
     const lat = center.lat;
     const lng = center.lng;
-    
+
     // 设置隐藏字段
     document.getElementById('obstacleLat').value = lat.toFixed(6);
     document.getElementById('obstacleLng').value = lng.toFixed(6);
-    
+
     // 显示经纬度
     document.getElementById('reportLocationCoords').innerText = `经度: ${lng.toFixed(6)}, 纬度: ${lat.toFixed(6)}`;
     document.getElementById('reportLocationName').innerText = '正在获取地点名称...';
-    
+
     // 显示模态框
     document.getElementById('reportModal').style.display = 'flex';
-    
+
     // 异步获取地址名称
     try {
         const addr = await reverseGeocode(lat, lng);
@@ -415,7 +414,7 @@ async function showReportModal() {
     } catch (e) {
         document.getElementById('reportLocationName').innerText = '无法获取地点名称';
     }
-    
+
     // 原有的 locationHint 也可以同步更新（可选）
     document.getElementById('locationHint').innerText = `📍 位置：${lat.toFixed(4)}, ${lng.toFixed(4)}`;
 }
@@ -505,15 +504,15 @@ window.onload = () => {
     document.getElementById('closeReportModal').onclick = () => document.getElementById('reportModal').style.display = 'none';
     document.getElementById('agreePrivacy').onclick = () => document.getElementById('privacyModal').style.display = 'none';
     document.getElementById('locateBtn').onclick = locateUser;
-// 新增搜索路线按钮
-document.getElementById('searchRouteBtn').addEventListener('click', planRealRoute);
-// 使用我的位置
-document.getElementById('useMyLocationBtn').addEventListener('click', useMyLocationAsStart);
-// 清除路线
-document.getElementById('clearRouteBtn').addEventListener('click', () => {
-    clearRoute();
-    speak('路线已清除');
-});
+    // 新增搜索路线按钮
+    document.getElementById('searchRouteBtn').addEventListener('click', planRealRoute);
+    // 使用我的位置
+    document.getElementById('useMyLocationBtn').addEventListener('click', useMyLocationAsStart);
+    // 清除路线
+    document.getElementById('clearRouteBtn').addEventListener('click', () => {
+        clearRoute();
+        speak('路线已清除');
+    });
 
     const contrastBtn = document.getElementById('contrastBtn');
     if (loadContrastPref()) document.body.classList.add('high-contrast');
@@ -557,7 +556,7 @@ function clearRoute() {
     }
 }
 
-// 真正的路线规划（使用 OSRM）
+// 真正的路线规划（使用 OSRM）—— 修复版
 async function planRealRoute() {
     const startAddr = document.getElementById('startAddress').value.trim();
     const endAddr = document.getElementById('endAddress').value.trim();
@@ -565,9 +564,9 @@ async function planRealRoute() {
         alert('请输入起点和终点地址');
         return;
     }
-    
+
     document.getElementById('status').innerText = '🔍 正在解析地址并规划路线...';
-    
+
     // 解析坐标
     const startCoord = await geocodeAddress(startAddr);
     const endCoord = await geocodeAddress(endAddr);
@@ -575,19 +574,19 @@ async function planRealRoute() {
         document.getElementById('status').innerText = '❌ 地址解析失败';
         return;
     }
-    
+
     // 清除旧路线
     clearRoute();
-    
+
     // 添加起点/终点标记
     startMarker = L.marker([startCoord.lat, startCoord.lng], {
         icon: L.divIcon({ className: 'route-marker', html: '🚩', iconSize: [28, 28] })
     }).addTo(map).bindPopup(`<b>起点</b><br>${startAddr}`);
-    
+
     endMarker = L.marker([endCoord.lat, endCoord.lng], {
         icon: L.divIcon({ className: 'route-marker', html: '🏁', iconSize: [28, 28] })
     }).addTo(map).bindPopup(`<b>终点</b><br>${endAddr}`);
-    
+
     // 获取路线
     const route = await getOSRMRoute(startCoord, endCoord);
     if (!route) {
@@ -601,62 +600,74 @@ async function planRealRoute() {
         speak(`直线距离约 ${distance} 公里，请参考地图`);
         return;
     }
-    
+
     // 绘制 OSRM 路线
     const geojson = route.geometry;
-    currentRouteLayer = L.geoJSON(geojson, { 
+    currentRouteLayer = L.geoJSON(geojson, {
         style: { color: '#007aff', weight: 6, opacity: 0.8 }
     }).addTo(map);
-    
+
     map.fitBounds(currentRouteLayer.getBounds());
-    
+
     const distance = (route.distance / 1000).toFixed(2);
     const duration = Math.round(route.duration / 60);
     const wheelchairMode = document.getElementById('wheelchairModeSearch').checked;
     const modeText = wheelchairMode ? '轮椅优先模式' : '普通模式';
-    
-    const msg = `路线规划成功（${modeText}），全程约 ${distance} 公里，预计步行 ${duration} 分钟。`;
-    document.getElementById('status').innerText = msg;
-    speak(msg);
+
+    const baseMsg = `路线规划成功（${modeText}），全程约 ${distance} 公里，预计步行 ${duration} 分钟。`;
+    document.getElementById('status').innerText = baseMsg;
+    speak(baseMsg);
     vibrate(3);
-    
 
-}
+    // ========== 沿途障碍物检测与警告（修复位置） ==========
+    const warnings = checkObstaclesAlongRoute(geojson, wheelchairMode);
+    if (warnings.length > 0) {
+        const totalObstacles = warnings.length;
+        const types = [...new Set(warnings.map(o => o.type))];
+        const warningMsg = wheelchairMode
+            ? `⚠️ 轮椅优先模式：沿途发现 ${totalObstacles} 处障碍物（${types.join('、')}），强烈建议手动绕行！`
+            : `📢 普通模式：沿途有 ${totalObstacles} 处障碍物，请注意安全。`;
 
-    // 沿途障碍物预警
-   function warnObstaclesAlongGeoJSON(geojson) {
-    const coords = [];
-    if (geojson.type === 'LineString') {
-        geojson.coordinates.forEach(c => coords.push({ lng: c[0], lat: c[1] }));
-    }
-    
-    const threshold = 0.002; // 约200米
-    const nearby = obstacles.filter(obs => {
-        return coords.some(c => Math.hypot(c.lat - obs.lat, c.lng - obs.lng) < threshold);
-    });
-    
-    if (nearby.length) {
-        const types = [...new Set(nearby.map(o => o.type))];
-        speak(`沿途附近有${nearby.length}处障碍物，类型包括${types.join('、')}，请小心通行`);
-        vibrate(4);
-        // 高亮障碍物
-        highlightNearbyObstacles(nearby);
-    }
-    // 在 planRealRoute 末尾添加
-warnObstaclesAlongGeoJSON(geojson);
-}
-
-function highlightNearbyObstacles(obsArray) {
-    obstacleMarkers.forEach(m => m.setIcon(L.divIcon({ className: 'obstacle-marker', html: '⚠️', iconSize: [24, 24] })));
-    obsArray.forEach(obs => {
-        const marker = obstacleMarkers.find(m => {
-            const pos = m.getLatLng();
-            return Math.abs(pos.lat - obs.lat) < 0.0001 && Math.abs(pos.lng - obs.lng) < 0.0001;
-        });
-        if (marker) {
-            marker.setIcon(L.divIcon({ className: 'obstacle-marker obstacle-highlight', html: '🔴⚠️', iconSize: [28, 28] }));
+        speak(warningMsg);
+        if (wheelchairMode) {
+            vibrate(4); // 强震动提醒
+            document.getElementById('status').innerHTML = `<span style="color:red;">🚨 ${warningMsg}</span>`;
+        } else {
+            vibrate(1);
+            document.getElementById('status').innerText = baseMsg + ' ' + warningMsg;
         }
-    });
+        // 高亮沿途障碍物
+        highlightNearbyObstacles(warnings);
+    } else {
+        // 无障碍物时保持正常消息
+        document.getElementById('status').innerText = baseMsg;
+    }
+}
+
+// 在 planRealRoute 函数内部，const msg = ... 之后添加：
+const wheelchairMode = document.getElementById('wheelchairModeSearch').checked;
+
+// 沿途障碍物检测与警告
+const warnings = checkObstaclesAlongRoute(geojson, wheelchairMode);
+if (warnings.length > 0) {
+    const totalObstacles = warnings.length;
+    const types = [...new Set(warnings.map(o => o.type))];
+    const warningMsg = wheelchairMode
+        ? `⚠️ 轮椅优先模式：沿途发现 ${totalObstacles} 处障碍物（${types.join('、')}），强烈建议手动绕行！`
+        : `📢 普通模式：沿途有 ${totalObstacles} 处障碍物，请注意安全。`;
+
+    speak(warningMsg);
+    if (wheelchairMode) {
+        vibrate(4); // 强震动提醒
+        document.getElementById('status').innerHTML = `<span style="color:red;">🚨 ${warningMsg}</span>`;
+    } else {
+        vibrate(1);
+        document.getElementById('status').innerText = msg + ' ' + warningMsg;
+    }
+    highlightNearbyObstacles(warnings);
+} else {
+    // 无障碍物时的正常消息
+    document.getElementById('status').innerText = msg;
 }
 
 // 计算两点直线距离（降级备用）
@@ -664,10 +675,10 @@ function getDistance(coord1, coord2) {
     const R = 6371;
     const dLat = (coord2.lat - coord1.lat) * Math.PI / 180;
     const dLng = (coord2.lng - coord1.lng) * Math.PI / 180;
-    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-              Math.cos(coord1.lat * Math.PI / 180) * Math.cos(coord2.lat * Math.PI / 180) *
-              Math.sin(dLng/2) * Math.sin(dLng/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(coord1.lat * Math.PI / 180) * Math.cos(coord2.lat * Math.PI / 180) *
+        Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
 }
 
@@ -739,4 +750,33 @@ async function useMyLocationAsStart() {
         alert('定位失败：' + err.message);
         document.getElementById('status').innerText = '❌ 定位失败';
     }, { enableHighAccuracy: true, timeout: 10000 });
+}
+
+// 检测沿途障碍物（返回障碍物数组）
+function checkObstaclesAlongRoute(geojson, strictMode = false) {
+    const coords = [];
+    if (geojson.type === 'LineString') {
+        geojson.coordinates.forEach(c => coords.push({ lng: c[0], lat: c[1] }));
+    } else return [];
+
+    const threshold = strictMode ? 0.003 : 0.0015; // 轮椅模式更敏感（约300米 vs 150米）
+    return obstacles.filter(obs => {
+        return coords.some(c => Math.hypot(c.lat - obs.lat, c.lng - obs.lng) < threshold);
+    });
+}
+
+// 高亮沿途障碍物
+function highlightNearbyObstacles(obsArray) {
+    // 先重置所有障碍物为默认样式
+    obstacleMarkers.forEach(m => m.setIcon(L.divIcon({ className: 'obstacle-marker', html: '⚠️', iconSize: [24, 24] })));
+    // 高亮传入的障碍物
+    obsArray.forEach(obs => {
+        const marker = obstacleMarkers.find(m => {
+            const pos = m.getLatLng();
+            return Math.abs(pos.lat - obs.lat) < 0.0001 && Math.abs(pos.lng - obs.lng) < 0.0001;
+        });
+        if (marker) {
+            marker.setIcon(L.divIcon({ className: 'obstacle-marker obstacle-highlight', html: '🔴⚠️', iconSize: [28, 28] }));
+        }
+    });
 }

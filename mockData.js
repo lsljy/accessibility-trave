@@ -87,3 +87,44 @@ const graph = {
 
 // 新增：通知权限请求状态
 let notificationEnabled = false;
+
+// 追加到 obstacles 数组末尾（保留原有数据）
+// 追加到 obstacles 数组末尾（雨母校区密集障碍物）
+const additionalObstacles = [
+    // 雨母校区核心区（图书馆、教学楼、食堂、宿舍）
+    { id: 201, lat: 26.8810, lng: 112.5145, type: "台阶", description: "雨母校区图书馆正门三级台阶", status: "未处理", reportTime: "2025-04-10", photo: null, claimedBy: null, claimTime: null, resolvedPhoto: null, resolvedTime: null },
+    { id: 202, lat: 26.8795, lng: 112.5160, type: "坡道损坏", description: "雨母校区食堂侧门坡道破损", status: "未处理", reportTime: "2025-04-09", photo: null, claimedBy: null, claimTime: null, resolvedPhoto: null, resolvedTime: null },
+    { id: 203, lat: 26.8820, lng: 112.5138, type: "盲道被占", description: "教学楼A栋前盲道被电动车占用", status: "未处理", reportTime: "2025-04-11", photo: null, claimedBy: null, claimTime: null, resolvedPhoto: null, resolvedTime: null },
+    { id: 204, lat: 26.8780, lng: 112.5172, type: "电梯故障", description: "学生宿舍3栋电梯停运", status: "未处理", reportTime: "2025-04-10", photo: null, claimedBy: null, claimTime: null, resolvedPhoto: null, resolvedTime: null },
+    { id: 205, lat: 26.8835, lng: 112.5120, type: "台阶", description: "体育场入口处无坡道", status: "未处理", reportTime: "2025-04-08", photo: null, claimedBy: null, claimTime: null, resolvedPhoto: null, resolvedTime: null },
+    { id: 206, lat: 26.8805, lng: 112.5180, type: "坡道损坏", description: "第二食堂北侧坡道碎裂", status: "未处理", reportTime: "2025-04-07", photo: null, claimedBy: null, claimTime: null, resolvedPhoto: null, resolvedTime: null },
+    { id: 207, lat: 26.8818, lng: 112.5152, type: "盲道被占", description: "图书馆西侧盲道被自行车阻挡", status: "未处理", reportTime: "2025-04-11", photo: null, claimedBy: null, claimTime: null, resolvedPhoto: null, resolvedTime: null },
+    { id: 208, lat: 26.8790, lng: 112.5140, type: "台阶", description: "教学楼B栋侧门台阶过高", status: "未处理", reportTime: "2025-04-09", photo: null, claimedBy: null, claimTime: null, resolvedPhoto: null, resolvedTime: null },
+    { id: 209, lat: 26.8825, lng: 112.5165, type: "电梯故障", description: "行政楼电梯停用", status: "未处理", reportTime: "2025-04-08", photo: null, claimedBy: null, claimTime: null, resolvedPhoto: null, resolvedTime: null },
+    { id: 210, lat: 26.8775, lng: 112.5135, type: "盲道被占", description: "宿舍区主干道盲道被杂物堵塞", status: "未处理", reportTime: "2025-04-06", photo: null, claimedBy: null, claimTime: null, resolvedPhoto: null, resolvedTime: null },
+    
+    // 校园道路沿途障碍物
+    { id: 211, lat: 26.8840, lng: 112.5110, type: "坡道损坏", description: "北门至体育场路段坡道坑洼", status: "未处理", reportTime: "2025-04-05", photo: null, claimedBy: null, claimTime: null, resolvedPhoto: null, resolvedTime: null },
+    { id: 212, lat: 26.8855, lng: 112.5130, type: "台阶", description: "北门出口处有3级台阶无坡道", status: "未处理", reportTime: "2025-04-04", photo: null, claimedBy: null, claimTime: null, resolvedPhoto: null, resolvedTime: null },
+    { id: 213, lat: 26.8760, lng: 112.5150, type: "盲道被占", description: "南门公交站盲道被共享单车占满", status: "未处理", reportTime: "2025-04-03", photo: null, claimedBy: null, claimTime: null, resolvedPhoto: null, resolvedTime: null },
+    { id: 214, lat: 26.8785, lng: 112.5190, type: "电梯故障", description: "实验楼货梯停运", status: "未处理", reportTime: "2025-04-02", photo: null, claimedBy: null, claimTime: null, resolvedPhoto: null, resolvedTime: null },
+    { id: 215, lat: 26.8830, lng: 112.5185, type: "坡道损坏", description: "图书馆东侧无障碍通道破损", status: "未处理", reportTime: "2025-04-01", photo: null, claimedBy: null, claimTime: null, resolvedPhoto: null, resolvedTime: null },
+    
+    // 周边道路（雨母山镇附近）
+    { id: 216, lat: 26.8860, lng: 112.5200, type: "台阶", description: "雨母山镇政府门口台阶", status: "未处理", reportTime: "2025-04-11", photo: null, claimedBy: null, claimTime: null, resolvedPhoto: null, resolvedTime: null },
+    { id: 217, lat: 26.8750, lng: 112.5100, type: "盲道被占", description: "南华大学雨母校区公交站盲道被占", status: "未处理", reportTime: "2025-04-09", photo: null, claimedBy: null, claimTime: null, resolvedPhoto: null, resolvedTime: null },
+    { id: 218, lat: 26.8880, lng: 112.5250, type: "坡道损坏", description: "雨母大道人行道地砖缺失", status: "未处理", reportTime: "2025-04-07", photo: null, claimedBy: null, claimTime: null, resolvedPhoto: null, resolvedTime: null },
+    { id: 219, lat: 26.8720, lng: 112.5080, type: "台阶", description: "雨母农贸市场入口台阶", status: "未处理", reportTime: "2025-04-05", photo: null, claimedBy: null, claimTime: null, resolvedPhoto: null, resolvedTime: null },
+    { id: 220, lat: 26.8900, lng: 112.5220, type: "电梯故障", description: "雨母超市观光电梯故障", status: "未处理", reportTime: "2025-04-03", photo: null, claimedBy: null, claimTime: null, resolvedPhoto: null, resolvedTime: null },
+    
+    // 更多内部道路密集点（使热力图更明显）
+    { id: 221, lat: 26.8802, lng: 112.5155, type: "盲道被占", description: "图书馆与教学楼之间盲道被摊贩占用", status: "未处理", reportTime: "2025-04-10", photo: null, claimedBy: null, claimTime: null, resolvedPhoto: null, resolvedTime: null },
+    { id: 222, lat: 26.8815, lng: 112.5170, type: "坡道损坏", description: "学生活动中心坡道防滑条脱落", status: "未处理", reportTime: "2025-04-09", photo: null, claimedBy: null, claimTime: null, resolvedPhoto: null, resolvedTime: null },
+    { id: 223, lat: 26.8798, lng: 112.5125, type: "台阶", description: "教学楼C栋后门两级台阶", status: "未处理", reportTime: "2025-04-08", photo: null, claimedBy: null, claimTime: null, resolvedPhoto: null, resolvedTime: null },
+    { id: 224, lat: 26.8770, lng: 112.5165, type: "电梯故障", description: "宿舍5栋电梯间照明损坏且电梯异响", status: "未处理", reportTime: "2025-04-07", photo: null, claimedBy: null, claimTime: null, resolvedPhoto: null, resolvedTime: null },
+    { id: 225, lat: 26.8828, lng: 112.5140, type: "盲道被占", description: "行政楼前盲道被机动车违停阻挡", status: "未处理", reportTime: "2025-04-06", photo: null, claimedBy: null, claimTime: null, resolvedPhoto: null, resolvedTime: null },
+];
+obstacles.push(...additionalObstacles);
+saveObstacles(); // 立即保存到 localStorage
+obstacles.push(...additionalObstacles);
+saveObstacles(); // 立即保存到 localStorage
