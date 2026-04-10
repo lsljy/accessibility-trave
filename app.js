@@ -479,3 +479,29 @@ window.onload = () => {
         setTimeout(() => document.getElementById('refreshIndicator').style.opacity = '1', 300);
     }, 30000);
 };
+
+// 路线规划功能
+function planRoute() {
+  let start = document.getElementById('startPoint').value;
+  let end = document.getElementById('endPoint').value;
+
+  if (!start || !end) {
+    alert('请输入起点和终点！');
+    return;
+  }
+
+  // 模拟地图规划路线（真实项目可对接地图API）
+  alert(
+    '路线规划成功！\n起点：' + start + '\n终点：' + end +
+    '\n\n已为你推荐无障碍路线（坡道+无障碍电梯优先）'
+  );
+
+  console.log('规划路线：', start, '→', end);
+}
+
+// 清除路线
+function clearRoute() {
+  document.getElementById('startPoint').value = '';
+  document.getElementById('endPoint').value = '';
+  alert('路线已清除');
+}
