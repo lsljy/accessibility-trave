@@ -6,7 +6,6 @@ let currentRouteLayer = null;
 let highlightedObstacleMarkers = [];
 
 // 初始化地图
-// 初始化地图
 function initMap() {
     map = L.map('map').setView([26.9005, 112.6423], 17); // 雨母校区核心坐标
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
@@ -511,28 +510,151 @@ window.onload = () => {
     }, 30000);
 };
 
-// 路线规划功能
-function planRoute() {
-  let start = document.getElementById('startPoint').value;
-  let end = document.getElementById('endPoint').value;
 
-  if (!start || !end) {
-    alert('请输入起点和终点！');
+
+// 根据名称查找校内地点
+function findCampusLocation(name) {
+  return campusLocations.find(loc => 
+    loc.name === name || loc.name.includes(name) || name.includes(loc.name)
+  );
+}
+
+// 工具：两点距离计算
+function getDistance(nodeA, nodeB) {
+  return Math.sqrt(Math.pow(nodeA.lat - nodeB.lat, 2) + Math.pow(nodeA.lng - nodeB.lng, 2));
+}
+
+// Dijkstra 最短路径算法（核心）
+function findShortestPath(startId, endId) {
+  const nodes = campusRoadNetwork.nodes;
+  const edges = campusRoadNetwork.edges;
+
+  // 构建图
+  const graph = {};
+  nodes.forEach(n => { graph[n.id] = {}; });
+  edges.forEach(([a, b]) => {
+    const nodeA = nodes.find(n => n.id === a);
+    const nodeB = nodes.find(n => n.id === b);
+    const dist = getDistance(nodeA, nodeB);
+    graph[a][b] = dist;
+    graph[b][a] = dist;
+  });
+
+  // 初始化距离和前驱
+  const dist = {}, prev = {}, visited = {};
+  nodes.forEach(n => { dist[n.id] = Infinity; prev[n.id] = null; });
+  dist[startId] = 0;
+
+  // 遍历找最短路径
+  while (true) {
+    let minNode = null;
+    nodes.forEach(n => {
+      if (!visited[n.id] && (minNode === null || dist[n.id] < dist[minNode])) minNode = n.id;
+    });
+    if (minNode === null || dist[minNode] === Infinity) break;
+    if (minNode === endId) break;
+    visited[minNode] = true;
+
+    Object.keys(graph[minNode]).forEach(neigh => {
+      const alt = dist[minNode] + graph[minNode][neigh];
+      if (alt < dist[neigh]) {
+        dist[neigh] = alt;
+        prev[neigh] = minNode;
+      }
+    });
+  }
+
+  // 回溯路径
+  const path = [];
+  let cur = endId;
+  while (cur !== null) {
+    path.unshift(nodes.find(n => n.id === cur));
+    cur = prev[cur];
+  }
+  return path.length > 1 ? path : null;
+}
+
+// 匹配地点 → 最近路网节点
+function locationToNode(loc) {
+  return campusRoadNetwork.nodes.reduce((best, node) => {
+    const d = getDistance(loc, node);
+    return !best || d < best.d ? { node, d } : best;
+  }, null).node;
+}
+
+// 规划路线（最终无错版）
+function planRoute() {
+  // 先做变量防御性检查，避免报错
+  if (typeof campusLocations === 'undefined' || typeof campusRoadNetwork === 'undefined') {
+    alert('数据加载失败，请刷新页面重试');
+    console.error('campusLocations 或 campusRoadNetwork 未定义，请检查脚本引入顺序');
     return;
   }
 
-  // 模拟地图规划路线（真实项目可对接地图API）
-  alert(
-    '路线规划成功！\n起点：' + start + '\n终点：' + end +
-    '\n\n已为你推荐无障碍路线（坡道+无障碍电梯优先）'
+  const startName = document.getElementById("startPoint").value.trim();
+  const endName = document.getElementById("endPoint").value.trim();
+
+  if (!startName || !endName) { 
+    alert("请输入起点和终点"); 
+    return; 
+  }
+
+  // 模糊匹配地点
+  const startLoc = campusLocations.find(l => 
+    l.name.includes(startName) || startName.includes(l.name)
+  );
+  const endLoc = campusLocations.find(l => 
+    l.name.includes(endName) || endName.includes(l.name)
   );
 
-  console.log('规划路线：', start, '→', end);
+  if (!startLoc) {
+    alert(`未找到起点「${startName}」\n可用地点：西门、东门、一教、二教、图书馆、食堂、宿舍、体育馆、操场`);
+    return;
+  }
+  if (!endLoc) {
+    alert(`未找到终点「${endName}」\n可用地点：西门、东门、一教、二教、图书馆、食堂、宿舍、体育馆、操场`);
+    return;
+  }
+
+  // 匹配到路网节点
+  const startNode = locationToNode(startLoc);
+  const endNode = locationToNode(endLoc);
+  const path = findShortestPath(startNode.id, endNode.id);
+
+  if (!path) { 
+    alert("无可用通行路径"); 
+    return; 
+  }
+
+  // 清除旧路线
+  if (currentRouteLayer) map.removeLayer(currentRouteLayer);
+
+  // 绘制真实道路路线
+  currentRouteLayer = L.polyline(
+    path.map(p => [p.lat, p.lng]),
+    { 
+      color: "#1677ff", 
+      weight: 6, 
+      dashArray: [10, 5], 
+      zIndex: 1000,
+      lineCap: "round"
+    }
+  ).addTo(map);
+
+  // 自适应视野
+  map.fitBounds(currentRouteLayer.getBounds(), { padding: [60, 60] });
+  
+  // 成功提示
+  alert(`✅ 路线规划成功！\n起点：${startLoc.name}\n终点：${endLoc.name}\n已沿校内真实道路规划`);
 }
 
 // 清除路线
 function clearRoute() {
-  document.getElementById('startPoint').value = '';
-  document.getElementById('endPoint').value = '';
-  alert('路线已清除');
+  if (currentRouteLayer) {
+    map.removeLayer(currentRouteLayer);
+    currentRouteLayer = null;
+  }
+  document.getElementById("startPoint").value = "";
+  document.getElementById("endPoint").value = "";
+  alert("路线已清除");
 }
