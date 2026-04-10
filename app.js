@@ -8,8 +8,9 @@ let startMarker = null;   // 起点标记
 let endMarker = null;     // 终点标记
 
 // 初始化地图
+// 初始化地图
 function initMap() {
-    map = L.map('map').setView([26.9005, 112.6423], 17); // 雨母校区核心坐标
+    map = L.map('map').setView([31.2304, 121.4737], 14); // 默认中心（作为后备）
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
         attribution: '&copy; OpenStreetMap'
     }).addTo(map);
@@ -522,27 +523,199 @@ document.getElementById('clearRouteBtn').addEventListener('click', () => {
 };
 
 // 路线规划功能
-function planRoute() {
-  let start = document.getElementById('startPoint').value;
-  let end = document.getElementById('endPoint').value;
-
-  if (!start || !end) {
-    alert('请输入起点和终点！');
-    return;
-  }
-
-  // 模拟地图规划路线（真实项目可对接地图API）
-  alert(
-    '路线规划成功！\n起点：' + start + '\n终点：' + end +
-    '\n\n已为你推荐无障碍路线（坡道+无障碍电梯优先）'
-  );
-
-  console.log('规划路线：', start, '→', end);
+清除旧路线
+function clearRoute() {
+    if (currentRouteLayer) map.removeLayer(currentRouteLayer);
+    if (startMarker) map.removeLayer(startMarker);
+    if (endMarker) map.removeLayer(endMarker);
+    startMarker = endMarker = null;
+    document.getElementById('status').innerText = '👋 欢迎使用无障碍出行伴侣';
+    // 重置障碍物高亮
+    if (window.highlightedMarkers) {
+        window.highlightedMarkers.forEach(m => m.setIcon(L.divIcon({ className: 'obstacle-marker', html: '⚠️', iconSize: [24, 24] })));
+    }
 }
 
-// 清除路线
-function clearRoute() {
-  document.getElementById('startPoint').value = '';
-  document.getElementById('endPoint').value = '';
-  alert('路线已清除');
+// 真正的路线规划（使用 OSRM）
+async function planRealRoute() {
+    const startAddr = document.getElementById('startAddress').value.trim();
+    const endAddr = document.getElementById('endAddress').value.trim();
+    if (!startAddr || !endAddr) {
+        alert('请输入起点和终点地址');
+        return;
+    }
+    
+    document.getElementById('status').innerText = '🔍 正在解析地址并规划路线...';
+    
+    // 解析坐标
+    const startCoord = await geocodeAddress(startAddr);
+    const endCoord = await geocodeAddress(endAddr);
+    if (!startCoord || !endCoord) {
+        document.getElementById('status').innerText = '❌ 地址解析失败';
+        return;
+    }
+    
+    // 清除旧路线
+    clearRoute();
+    
+    // 添加起点/终点标记
+    startMarker = L.marker([startCoord.lat, startCoord.lng], {
+        icon: L.divIcon({ className: 'route-marker', html: '🚩', iconSize: [28, 28] })
+    }).addTo(map).bindPopup(`<b>起点</b><br>${startAddr}`);
+    
+    endMarker = L.marker([endCoord.lat, endCoord.lng], {
+        icon: L.divIcon({ className: 'route-marker', html: '🏁', iconSize: [28, 28] })
+    }).addTo(map).bindPopup(`<b>终点</b><br>${endAddr}`);
+    
+    // 获取路线
+    const route = await getOSRMRoute(startCoord, endCoord);
+    if (!route) {
+        alert('在线路径规划失败，将使用直线距离（仅供参考）');
+        // 降级：绘制直线
+        const latlngs = [[startCoord.lat, startCoord.lng], [endCoord.lat, endCoord.lng]];
+        currentRouteLayer = L.polyline(latlngs, { color: 'red', weight: 4, dashArray: '5, 10' }).addTo(map);
+        map.fitBounds(currentRouteLayer.getBounds());
+        const distance = getDistance(startCoord, endCoord).toFixed(2);
+        document.getElementById('status').innerText = `直线距离约 ${distance} 公里（无法获取步行路线）`;
+        speak(`直线距离约 ${distance} 公里，请参考地图`);
+        return;
+    }
+    
+    // 绘制 OSRM 路线
+    const geojson = route.geometry;
+    currentRouteLayer = L.geoJSON(geojson, { 
+        style: { color: '#007aff', weight: 6, opacity: 0.8 }
+    }).addTo(map);
+    
+    map.fitBounds(currentRouteLayer.getBounds());
+    
+    const distance = (route.distance / 1000).toFixed(2);
+    const duration = Math.round(route.duration / 60);
+    const wheelchairMode = document.getElementById('wheelchairModeSearch').checked;
+    const modeText = wheelchairMode ? '轮椅优先模式' : '普通模式';
+    
+    const msg = `路线规划成功（${modeText}），全程约 ${distance} 公里，预计步行 ${duration} 分钟。`;
+    document.getElementById('status').innerText = msg;
+    speak(msg);
+    vibrate(3);
+    
+
+}
+
+    // 沿途障碍物预警
+   function warnObstaclesAlongGeoJSON(geojson) {
+    const coords = [];
+    if (geojson.type === 'LineString') {
+        geojson.coordinates.forEach(c => coords.push({ lng: c[0], lat: c[1] }));
+    }
+    
+    const threshold = 0.002; // 约200米
+    const nearby = obstacles.filter(obs => {
+        return coords.some(c => Math.hypot(c.lat - obs.lat, c.lng - obs.lng) < threshold);
+    });
+    
+    if (nearby.length) {
+        const types = [...new Set(nearby.map(o => o.type))];
+        speak(`沿途附近有${nearby.length}处障碍物，类型包括${types.join('、')}，请小心通行`);
+        vibrate(4);
+        // 高亮障碍物
+        highlightNearbyObstacles(nearby);
+    }
+    // 在 planRealRoute 末尾添加
+warnObstaclesAlongGeoJSON(geojson);
+}
+
+function highlightNearbyObstacles(obsArray) {
+    obstacleMarkers.forEach(m => m.setIcon(L.divIcon({ className: 'obstacle-marker', html: '⚠️', iconSize: [24, 24] })));
+    obsArray.forEach(obs => {
+        const marker = obstacleMarkers.find(m => {
+            const pos = m.getLatLng();
+            return Math.abs(pos.lat - obs.lat) < 0.0001 && Math.abs(pos.lng - obs.lng) < 0.0001;
+        });
+        if (marker) {
+            marker.setIcon(L.divIcon({ className: 'obstacle-marker obstacle-highlight', html: '🔴⚠️', iconSize: [28, 28] }));
+        }
+    });
+}
+
+// 计算两点直线距离（降级备用）
+function getDistance(coord1, coord2) {
+    const R = 6371;
+    const dLat = (coord2.lat - coord1.lat) * Math.PI / 180;
+    const dLng = (coord2.lng - coord1.lng) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(coord1.lat * Math.PI / 180) * Math.cos(coord2.lat * Math.PI / 180) *
+              Math.sin(dLng/2) * Math.sin(dLng/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+}
+
+// 地址转坐标（使用 Nominatim）
+async function geocodeAddress(address) {
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`;
+    try {
+        const response = await fetch(url, {
+            headers: { 'User-Agent': 'AccessibilityTravelCompanion/1.0 (your_email@example.com)' }
+        });
+        const data = await response.json();
+        if (data.length > 0) {
+            return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+        } else {
+            throw new Error('未找到该地址');
+        }
+    } catch (error) {
+        console.error('地理编码失败:', error);
+        alert('地址解析失败，请尝试更具体的名称（例如“衡阳火车站”）');
+        return null;
+    }
+}
+
+// 反向地理编码（坐标→地址，用于“使用我的位置”）
+async function reverseGeocode(lat, lng) {
+    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`;
+    try {
+        const res = await fetch(url, {
+            headers: { 'User-Agent': 'AccessibilityTravelCompanion/1.0 (your_email@example.com)' }
+        });
+        const data = await res.json();
+        return data.display_name || `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+    } catch {
+        return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+    }
+}
+
+// 调用 OSRM 获取步行路线
+async function getOSRMRoute(startCoords, endCoords) {
+    // OSRM 坐标格式：lng,lat
+    const url = `https://router.project-osrm.org/route/v1/foot/${startCoords.lng},${startCoords.lat};${endCoords.lng},${endCoords.lat}?overview=full&geometries=geojson&steps=true`;
+    try {
+        const response = await fetch(url);
+        const data = await response.json();
+        if (data.code === 'Ok') {
+            return data.routes[0];
+        } else {
+            throw new Error('路径规划失败');
+        }
+    } catch (error) {
+        console.error('OSRM 错误:', error);
+        return null;
+    }
+}
+async function useMyLocationAsStart() {
+    if (!navigator.geolocation) {
+        alert('浏览器不支持定位');
+        return;
+    }
+    document.getElementById('status').innerText = '📍 正在获取您的位置...';
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        const addr = await reverseGeocode(lat, lng);
+        document.getElementById('startAddress').value = addr;
+        document.getElementById('status').innerText = '✅ 已设置起点为当前位置';
+        speak('起点已设置为当前位置');
+    }, (err) => {
+        alert('定位失败：' + err.message);
+        document.getElementById('status').innerText = '❌ 定位失败';
+    }, { enableHighAccuracy: true, timeout: 10000 });
 }
