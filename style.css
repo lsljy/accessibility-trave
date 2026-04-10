@@ -525,10 +525,22 @@ th {
   background: #0066cc;
 }
 
-#reportLocationInfo {
-    background: #f0f7ff;
-    padding: 10px;
-    border-radius: 12px;
-    margin-bottom: 15px;
-    border-left: 4px solid #007aff;
+/* POI 标记点样式优化 */
+.custom-poi {
+    background: transparent !important;
+    border: none !important;
+}
+
+.poi-label {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    letter-spacing: 0.3px;
+    backdrop-filter: blur(4px);
+}
+
+/* 地图缩放时隐藏过小的标签（可选） */
+@media (max-width: 600px) {
+    .poi-label {
+        font-size: 9px;
+        padding: 1px 4px;
+    }
 }

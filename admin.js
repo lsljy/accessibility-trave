@@ -291,6 +291,15 @@ async function exportPDF() {
 
 // 页面初始化
 window.onload = () => {
+    initMap();
+    // 注意：addPoiMarkers 现在内部会调用 updateMarkersByZoom
+    // 但需要等待地图完全初始化，可以稍微延迟或调整
+    setTimeout(() => {
+        addPoiMarkers();
+        updateObstacleMarkers();
+        renderFacilityPanel();
+    }, 100);
+    
     initHeatmap();
     renderTable();
     renderCharts();
