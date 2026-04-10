@@ -946,7 +946,7 @@ window.onload = () => {
     updateObstacleMarkers();
     renderFacilityPanel();
 
-    document.getElementById('voiceBtn').onclick = voiceNavigation;
+document.getElementById('voiceBtn').onclick = toggleVoiceRecognition;
     document.getElementById('sosBtn').onclick = sos;
     document.getElementById('reportBtn').onclick = showReportModal;
     document.getElementById('statsBtn').onclick = showStats;
