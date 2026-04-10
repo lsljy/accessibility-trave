@@ -16,24 +16,20 @@
     <div id="status">👋 欢迎使用无障碍出行伴侣</div>
 
     <!-- 路线规划功能（顶部留5厘米版） -->
-    <div id="routePlan" style="
-    position: fixed; 
-    top: 5cm; 
-    left: 10px; 
-    z-index: 9999; 
-    background: white; 
-    padding: 12px; 
-    border-radius: 8px; 
-    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-    ">
-    <h4 style="margin:0 0 8px 0;">无障碍路线规划</h4>
-    <input type="text" id="startPoint" placeholder="输入起点" style="width:160px; margin-bottom:5px;">
-    <br>
-    <input type="text" id="endPoint" placeholder="输入终点" style="width:160px; margin-bottom:8px;">
-    <br>
-    <button onclick="planRoute()">规划路线</button>
-    <button onclick="clearRoute()">清除路线</button>
+<!-- 地址搜索与路线规划面板 -->
+<div id="search-panel" style="position: fixed; top: 70px; left: 10px; right: 10px; z-index: 1001; background: rgba(255,255,255,0.95); backdrop-filter: blur(5px); padding: 12px; border-radius: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+    <div style="display: flex; gap: 8px; align-items: center;">
+        <input type="text" id="startAddress" placeholder="起点（例如：南华大学红湘校区）" style="flex:1; padding: 12px; border: 1px solid #ddd; border-radius: 30px; font-size: 14px;">
+        <span style="font-size: 18px;">→</span>
+        <input type="text" id="endAddress" placeholder="终点（例如：衡阳火车站）" style="flex:1; padding: 12px; border: 1px solid #ddd; border-radius: 30px; font-size: 14px;">
+        <button id="searchRouteBtn" style="padding: 12px 18px; border-radius: 30px; background: #007aff; color: white; border: none; font-weight: bold;">🔍 规划</button>
     </div>
+    <div style="margin-top: 8px; display: flex; align-items: center; gap: 15px;">
+        <label style="font-size: 14px;"><input type="checkbox" id="wheelchairModeSearch" checked> ♿ 轮椅优先（避开台阶/障碍）</label>
+        <button id="useMyLocationBtn" style="background: none; border: none; color: #007aff; font-size: 14px;">📍 使用我的位置</button>
+        <button id="clearRouteBtn" style="background: none; border: none; color: #ff3b30; font-size: 14px;">🗑️ 清除路线</button>
+    </div>
+</div>
 
     <!-- 底部控制面板 -->
     <div id="control-panel">
