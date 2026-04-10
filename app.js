@@ -6,13 +6,38 @@ let currentRouteLayer = null;
 let highlightedObstacleMarkers = [];
 let startMarker = null;   // 起点标记
 let endMarker = null;     // 终点标记
+let detailMarkers = [];      // 详细POI标记（带文字）
+let campusMarker = null;     // 校园总标记
+const ZOOM_THRESHOLD = 15;   // 缩放阈值：>=15显示详细标记，<15显示校园总标记
+let obstacleDetailMarkers = []; // 障碍物标记数组（用于缩放控制）
 
-// 初始化地图
+// 语音持续监听相关
+let isListening = false;
+let recognition = null;
+let inactivityTimer = null;
+const inactivityTimeout = 30000; // 30秒
+
+// 对话上下文（支持多轮）
+let context = {
+  lastDestination: null,      // 上一次查询的地点名称或坐标
+  lastFacilityType: null,     // 上一次查询的无障碍设施类型（电梯/坡道/卫生间/盲道）
+  lastSearchResults: [],      // 上一次搜索到的地点列表
+  lastRouteInfo: null,        // 上一次规划的路线信息（距离、时间）
+  waitingConfirmation: false   // 是否等待用户确认（例如“是否开始导航”）
+};
+
 function initMap() {
     map = L.map('map').setView([26.5310, 112.3028], 16);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
         attribution: '&copy; OpenStreetMap'
     }).addTo(map);
+    
+    // 添加缩放监听 - 同时控制POI和障碍物
+    map.on('zoomend', function() {
+        updateMarkersByZoom();      // 控制绿色POI标记和校园总标记
+        updateObstaclesByZoom();    // 控制黄色障碍物标记
+    });
+    
     locateAndSetView();
 }
 
@@ -40,8 +65,11 @@ function locateAndSetView() {
 
 function speak(text) {
     if (!window.speechSynthesis) return;
-    const utterance = new SpeechSynthesisUtterance(text);
+    // 移除所有可能的表情符号或特殊字符，只保留中文、英文、数字、常用标点
+    const cleanText = text.replace(/[^\u4e00-\u9fa5a-zA-Z0-9，。？、：；""''！]/g, '');
+    const utterance = new SpeechSynthesisUtterance(cleanText);
     utterance.lang = 'zh-CN';
+    utterance.rate = 0.9;  // 语速稍慢，适合老年人/视障人士
     window.speechSynthesis.cancel();
     window.speechSynthesis.speak(utterance);
 }
@@ -53,34 +81,86 @@ function vibrate(pattern) {
 }
 
 function addPoiMarkers() {
+    // 清除旧标记
+    detailMarkers.forEach(m => map.removeLayer(m));
+    detailMarkers = [];
+    
     poiList.forEach(poi => {
         const color = poi.score >= 4 ? '#34c759' : (poi.score >= 3 ? '#ff9500' : '#ff3b30');
+        
+        // 详细标记（带文字，右侧）
+        const html = `
+            <div style="display: flex; align-items: center; gap: 4px;">
+                <div style="background:${color}; width:12px; height:12px; border-radius:50%; border:2px solid white; box-shadow:0 1px 2px rgba(0,0,0,0.1);"></div>
+                <span style="color: #1a1a1a; font-size: 12px; font-weight: 500; text-shadow: 0 0 2px white, 0 0 2px white; white-space: nowrap;">${poi.name}</span>
+            </div>
+        `;
+        
         const marker = L.marker([poi.lat, poi.lng], {
             icon: L.divIcon({
                 className: 'custom-poi',
-                html: `<div style="background:${color}; width:16px; height:16px; border-radius:50%; border:3px solid white; box-shadow:0 2px 6px rgba(0,0,0,0.2);"></div>`,
-                iconSize: [16, 16]
+                html: html,
+                iconSize: [80, 20],
+                popupAnchor: [0, -8]
             })
-        }).addTo(map);
+        });
+        
         marker.bindPopup(createPopupContent(poi));
-        poiMarkers.push(marker);
+        detailMarkers.push(marker);
     });
+    
+    // 创建校园总标记（雨母校区）
+    const campusCenter = [26.8843, 112.5095];  // 校园中心坐标
+    campusMarker = L.marker(campusCenter, {
+        icon: L.divIcon({
+            className: 'campus-marker',
+            html: `<div style="background:#007aff; width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; border:3px solid white; box-shadow:0 2px 8px rgba(0,0,0,0.2);">
+                    <span style="color:white; font-size:18px; font-weight:bold;">🏫</span>
+                   </div>
+                   <div style="color:#1a1a1a; font-size:12px; font-weight:600; text-align:center; margin-top:4px; background:rgba(255,255,255,0.85); padding:2px 8px; border-radius:16px;">南华大学<br>雨母校区</div>`,
+            iconSize: [50, 50],
+            popupAnchor: [0, -20]
+        })
+    }).bindPopup('<b>🏫 南华大学（雨母校区）</b><br>点击放大可查看校园内各建筑的无障碍设施');
+    
+    // 根据当前缩放级别显示相应标记
+    updateMarkersByZoom();
+}
+
+// 根据缩放级别切换标记显示
+function updateMarkersByZoom() {
+    const currentZoom = map.getZoom();
+    
+    if (currentZoom >= ZOOM_THRESHOLD) {
+        // 放大状态：显示详细POI标记，隐藏校园总标记
+        if (campusMarker) map.removeLayer(campusMarker);
+        detailMarkers.forEach(marker => marker.addTo(map));
+    } else {
+        // 缩小状态：显示校园总标记，隐藏详细POI标记
+        detailMarkers.forEach(marker => map.removeLayer(marker));
+        if (campusMarker) campusMarker.addTo(map);
+    }
 }
 
 function createPopupContent(poi) {
-    const status = facilityStatus[poi.name] || { elevator: '未知', ramp: '未知' };
+    const status = facilityStatus[poi.name] || { elevator: '未知', ramp: '未知', tactilePaving: '未知', stairs: '未知' };
     return `
         <b>${poi.name}</b><br>
         ⭐ 可达性评分: ${poi.score}/5<br>
         🛗 电梯: <span style="color:${status.elevator === '正常' ? 'green' : 'red'}">${status.elevator}</span><br>
         ♿ 坡道: <span style="color:${status.ramp === '正常' ? 'green' : 'red'}">${status.ramp}</span><br>
+        🟨 盲道: <span style="color:${status.tactilePaving === '有' ? 'green' : 'red'}">${status.tactilePaving === '有' ? '✓ 有' : '✗ 无'}</span><br>
+        📶 台阶: <span style="color:${status.stairs === '无台阶' ? 'green' : 'red'}">${status.stairs === '无台阶' ? '✓ 无障碍' : '⚠️ 有台阶'}</span><br>
         <button onclick="window.navigateTo(${poi.lat}, ${poi.lng}, '${poi.name}')" style="margin-top:5px;padding:5px 10px;">🧭 导航至此</button>
     `;
 }
 
 function updateObstacleMarkers() {
-    obstacleMarkers.forEach(m => map.removeLayer(m));
+    // 清除旧标记
+    obstacleDetailMarkers.forEach(m => map.removeLayer(m));
+    obstacleDetailMarkers = [];
     obstacleMarkers = [];
+    
     obstacles.forEach(obs => {
         const marker = L.marker([obs.lat, obs.lng], {
             icon: L.divIcon({ className: 'obstacle-marker', html: '⚠️', iconSize: [24, 24] })
@@ -92,8 +172,25 @@ function updateObstacleMarkers() {
             上报: ${obs.reportTime}
             ${obs.photo ? '<br><img src="' + obs.photo + '" style="max-width:100%; margin-top:5px;">' : ''}
         `);
+        obstacleDetailMarkers.push(marker);
         obstacleMarkers.push(marker);
     });
+    
+    // 根据当前缩放级别决定是否显示
+    updateObstaclesByZoom();
+}
+
+// 根据缩放级别控制障碍物标记显示
+function updateObstaclesByZoom() {
+    const currentZoom = map.getZoom();
+    
+    if (currentZoom >= ZOOM_THRESHOLD) {
+        // 放大：显示障碍物标记
+        obstacleDetailMarkers.forEach(marker => marker.addTo(map));
+    } else {
+        // 缩小：隐藏障碍物标记
+        obstacleDetailMarkers.forEach(marker => map.removeLayer(marker));
+    }
 }
 
 function getAvoidTypes() {
@@ -289,6 +386,7 @@ function speakRouteWarnings(routeLatLngs) {
     }
 }
 
+// 实时设施状态面板渲染（增加台阶和盲道）
 function renderFacilityPanel() {
     const container = document.getElementById('facilityList');
     if (!container) return;
@@ -297,11 +395,15 @@ function renderFacilityPanel() {
         const status = facilityStatus[name];
         const elevatorClass = status.elevator === '正常' ? 'status-normal' : 'status-warning';
         const rampClass = status.ramp === '正常' ? 'status-normal' : 'status-warning';
+        const tactileClass = status.tactilePaving === '有' ? 'status-normal' : 'status-warning';
+        const stairsClass = status.stairs === '无台阶' ? 'status-normal' : 'status-warning';
         html += `
             <div class="facility-item" data-name="${name}">
                 <div class="facility-name">🏢 ${name}</div>
                 <div class="facility-detail">🛗 电梯: <span class="${elevatorClass}">${status.elevator}</span></div>
                 <div class="facility-detail">♿ 坡道: <span class="${rampClass}">${status.ramp}</span></div>
+                <div class="facility-detail">🟨 盲道: <span class="${tactileClass}">${status.tactilePaving === '有' ? '✓ 有' : '✗ 无'}</span></div>
+                <div class="facility-detail">📶 台阶: <span class="${stairsClass}">${status.stairs === '无台阶' ? '✓ 无障碍' : '⚠️ 有台阶'}</span></div>
             </div>
         `;
     }
@@ -317,59 +419,414 @@ function renderFacilityPanel() {
                     return Math.abs(pos.lat - poi.lat) < 0.0001 && Math.abs(pos.lng - poi.lng) < 0.0001;
                 });
                 if (marker) marker.openPopup();
-                speak(`${name}，电梯${facilityStatus[name].elevator}，坡道${facilityStatus[name].ramp}`);
+                speak(`${name}，电梯${facilityStatus[name].elevator}，坡道${facilityStatus[name].ramp}，盲道${facilityStatus[name].tactilePaving === '有' ? '有' : '无'}，${facilityStatus[name].stairs === '无台阶' ? '无台阶' : '有台阶'}`);
             }
         });
     });
 }
 
-function processVoiceCommand(command) {
-    const lowerCmd = command.toLowerCase();
-    const matchedPoi = poiList.find(poi => lowerCmd.includes(poi.name.toLowerCase()));
-    if (matchedPoi) {
-        navigateTo(matchedPoi.lat, matchedPoi.lng, matchedPoi.name);
-        return;
-    }
-    if (lowerCmd.includes('附近') && (lowerCmd.includes('无障碍') || lowerCmd.includes('设施') || lowerCmd.includes('电梯') || lowerCmd.includes('坡道'))) {
-        const center = map.getCenter();
-        const nearby = poiList.filter(poi => {
-            const dist = Math.hypot(poi.lat - center.lat, poi.lng - center.lng);
-            const status = facilityStatus[poi.name];
-            const hasGood = (status?.elevator === '正常' || status?.ramp === '正常') || poi.score >= 3.5;
-            return dist < 0.05 && hasGood;
-        });
-        if (nearby.length === 0) {
-            speak("附近暂时没有找到无障碍设施，您可以尝试移动地图位置或上报新设施。");
-        } else {
-            const names = nearby.map(p => `${p.name}（评分${p.score}）`).join('，');
-            speak(`附近找到${nearby.length}个无障碍友好设施：${names}`);
-            document.getElementById('status').innerHTML = `🔍 附近无障碍设施: ${names}`;
-            vibrate(1);
-        }
-        return;
-    }
-    if (lowerCmd.includes('电梯') && lowerCmd.includes('哪里')) {
-        const elevOk = poiList.filter(poi => facilityStatus[poi.name]?.elevator === '正常');
-        if (elevOk.length) speak(`电梯正常的场所有：${elevOk.map(p => p.name).join('、')}`);
-        else speak("当前暂无电梯正常运行的场所");
-        return;
-    }
-    speak("未识别指令，您可以尝试说“导航到图书馆”或“附近有哪些无障碍设施”");
+// ==================== 核心：自然语言理解与多轮对话 ====================
+// 清除上下文
+function clearContext() {
+    context = {
+        lastDestination: null,
+        lastFacilityType: null,
+        lastSearchResults: [],
+        lastRouteInfo: null,
+        waitingConfirmation: false
+    };
+    speak("好的，已经清空，您可以重新说出需求。");
 }
 
-function voiceNavigation() {
-    if (!window.webkitSpeechRecognition) {
-        alert("浏览器不支持语音识别");
+// 解析意图（支持口语化、同义词）
+function parseIntent(command) {
+    const lower = command.toLowerCase();
+    // 1. 清除上下文指令
+    if (lower.includes('重新说') || lower.includes('取消') || lower.includes('重来') || lower.includes('清空')) {
+        return { intent: 'clear' };
+    }
+    // 2. 求助意图
+    if (lower.includes('救命') || lower.includes('sos') || lower.includes('帮助我') || lower.includes('求助')) {
+        return { intent: 'sos' };
+    }
+    // 3. 导航意图（带我去、导航到、去、我想去、我要去）
+    const navPatterns = [/带我去(.+)/, /导航到(.+)/, /去(.+)/, /我想去(.+)/, /我要去(.+)/];
+    for (let pattern of navPatterns) {
+        const match = command.match(pattern);
+        if (match) {
+            let destination = match[1].trim();
+            // 移除末尾的“吧”“呗”“好吗”等语气词
+            destination = destination.replace(/吧$|呗$|好吗$|谢谢$/g, '');
+            if (destination) {
+                return { intent: 'navigate', target: destination };
+            }
+        }
+    }
+    // 4. 查询无障碍设施（电梯、坡道、无障碍卫生间、盲道）
+    if (lower.includes('电梯')) {
+        return { intent: 'facility', type: '电梯' };
+    }
+    if (lower.includes('坡道')) {
+        return { intent: 'facility', type: '坡道' };
+    }
+    if (lower.includes('无障碍卫生间') || lower.includes('残疾人卫生间') || lower.includes('第三卫生间')) {
+        return { intent: 'facility', type: '无障碍卫生间' };
+    }
+    if (lower.includes('盲道')) {
+        return { intent: 'facility', type: '盲道' };
+    }
+    // 5. 附近无障碍设施（附近有什么、附近有哪些）
+    if (lower.includes('附近') && (lower.includes('无障碍') || lower.includes('设施') || lower.includes('电梯') || lower.includes('坡道'))) {
+        return { intent: 'nearby' };
+    }
+    // 6. 多轮对话追问（然后呢、怎么去、还有多远、接下来）
+    if (lower.includes('然后呢') || lower.includes('然后') || lower.includes('接下来')) {
+        return { intent: 'then' };
+    }
+    if (lower.includes('怎么去') || lower.includes('如何前往') || lower.includes('路线')) {
+        return { intent: 'howtogo' };
+    }
+    if (lower.includes('还有多远') || lower.includes('距离')) {
+        return { intent: 'distance' };
+    }
+    // 7. 确认指令（例如“是”“开始导航”“好的”），用于等待确认状态
+    if (context.waitingConfirmation && (lower.includes('是') || lower.includes('开始') || lower.includes('好') || lower.includes('导航'))) {
+        return { intent: 'confirm' };
+    }
+    if (context.waitingConfirmation && (lower.includes('不') || lower.includes('取消') || lower.includes('不用'))) {
+        return { intent: 'deny' };
+    }
+    // 默认未知
+    return { intent: 'unknown' };
+}
+
+// 执行导航（支持任意地点，自动地理编码）
+async function executeNavigate(destination) {
+    // 先尝试从POI列表匹配
+    let matchedPoi = poiList.find(poi => poi.name.includes(destination) || destination.includes(poi.name));
+    if (matchedPoi) {
+        context.lastDestination = { name: matchedPoi.name, lat: matchedPoi.lat, lng: matchedPoi.lng };
+        speak(`好的，正在为您规划到${matchedPoi.name}的路线`);
+        window.navigateTo(matchedPoi.lat, matchedPoi.lng, matchedPoi.name);
+        context.waitingConfirmation = false;
         return;
     }
-    const recognition = new webkitSpeechRecognition();
-    recognition.lang = 'zh-CN';
-    recognition.onresult = (event) => {
-        const command = event.results[0][0].transcript;
-        document.getElementById('status').innerText = `🎤 识别到: ${command}`;
-        processVoiceCommand(command);
+    // 否则调用在线地理编码
+    speak(`正在搜索${destination}的位置，请稍后`);
+    document.getElementById('status').innerText = `🔍 正在搜索 ${destination} ...`;
+    const endCoord = await geocodeAddress(destination);
+    if (!endCoord) {
+        speak(`抱歉，没有找到${destination}，您可以再说得具体一点，比如加上城市名。`);
+        return;
+    }
+    // 获取起点（用户当前位置或地图中心）
+    let startCoord = null;
+    if (navigator.geolocation) {
+        startCoord = await new Promise((resolve) => {
+            navigator.geolocation.getCurrentPosition(
+                (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+                () => resolve(null),
+                { timeout: 5000 }
+            );
+        });
+    }
+    if (!startCoord) {
+        const center = map.getCenter();
+        startCoord = { lat: center.lat, lng: center.lng };
+    }
+    const route = await getOSRMRoute(startCoord, endCoord);
+    if (!route) {
+        speak("路线规划失败，可能是网络问题，请稍后再试。");
+        return;
+    }
+    // 保存到上下文
+    context.lastDestination = { name: destination, lat: endCoord.lat, lng: endCoord.lng };
+    context.lastRouteInfo = { distance: route.distance, duration: route.duration };
+    clearRoute(); // 清除旧路线
+    startMarker = L.marker([startCoord.lat, startCoord.lng], {
+        icon: L.divIcon({ className: 'route-marker', html: '🚩', iconSize: [28, 28] })
+    }).addTo(map).bindPopup('<b>起点</b>');
+    endMarker = L.marker([endCoord.lat, endCoord.lng], {
+        icon: L.divIcon({ className: 'route-marker', html: '🏁', iconSize: [28, 28] })
+    }).addTo(map).bindPopup(`<b>终点</b><br>${destination}`);
+    const geojson = route.geometry;
+    currentRouteLayer = L.geoJSON(geojson, { style: { color: '#007aff', weight: 6, opacity: 0.8 } }).addTo(map);
+    map.fitBounds(currentRouteLayer.getBounds());
+    const distanceKm = (route.distance / 1000).toFixed(1);
+    const durationMin = Math.round(route.duration / 60);
+    const msg = `到${destination}的路线规划成功，距离约${distanceKm}公里，步行大约需要${durationMin}分钟。`;
+    document.getElementById('status').innerText = msg;
+    speak(msg);
+    vibrate(3);
+    warnObstaclesAlongGeoJSON(geojson);
+    context.waitingConfirmation = false;
+}
+
+// 查询无障碍设施（根据类型）
+function queryFacility(type) {
+    let available = [];
+    if (type === '电梯') {
+        available = poiList.filter(poi => facilityStatus[poi.name]?.elevator === '正常');
+    } else if (type === '坡道') {
+        available = poiList.filter(poi => facilityStatus[poi.name]?.ramp === '正常');
+    } else if (type === '无障碍卫生间') {
+        // 模拟：假设评分>=4的POI有卫生间
+        available = poiList.filter(poi => poi.score >= 4);
+    } else if (type === '盲道') {
+        // 模拟：假设评分>=3.5的有盲道
+        available = poiList.filter(poi => poi.score >= 3.5);
+    }
+    if (available.length === 0) {
+        speak(`抱歉，当前地图数据中没有找到${type}正常的场所，您可以尝试上报或移动位置。`);
+        context.lastSearchResults = [];
+        return;
+    }
+    const names = available.map(p => p.name).join('、');
+    speak(`找到${available.length}个${type}正常的场所，包括${names}。需要我为您导航到最近的一个吗？`);
+    context.lastFacilityType = type;
+    context.lastSearchResults = available;
+    context.waitingConfirmation = true;
+}
+
+// 附近无障碍设施（基于当前地图视野）
+function nearbyFacilities() {
+    const center = map.getCenter();
+    const radius = 0.05; // 约5公里
+    const nearby = poiList.filter(poi => {
+        const dist = Math.hypot(poi.lat - center.lat, poi.lng - center.lng);
+        return dist < radius;
+    });
+    if (nearby.length === 0) {
+        speak("您附近没有找到无障碍设施，您可以移动地图到更繁华的区域。");
+        context.lastSearchResults = [];
+        return;
+    }
+    const names = nearby.map(p => p.name).join('、');
+    speak(`您附近有${nearby.length}个地点，包括${names}。需要查询其中某个地点的无障碍设施吗？`);
+    context.lastSearchResults = nearby;
+    context.waitingConfirmation = true;
+}
+
+// 处理追问“然后呢”
+function handleThen() {
+    if (context.lastDestination) {
+        speak(`您刚才查询的是${typeof context.lastDestination === 'string' ? context.lastDestination : context.lastDestination.name}，需要我为您重新规划路线吗？`);
+    } else if (context.lastFacilityType) {
+        speak(`您刚才查询的是${context.lastFacilityType}，需要我为您导航到最近的一个吗？`);
+    } else if (context.lastSearchResults.length > 0) {
+        speak(`您刚才搜索到${context.lastSearchResults.length}个结果，需要我详细介绍吗？`);
+    } else {
+        speak("您还没有进行过任何查询，请先说出您的需求，比如导航到图书馆。");
+    }
+}
+
+// 处理“怎么去”
+function handleHowToGo() {
+    if (context.lastDestination) {
+        executeNavigate(typeof context.lastDestination === 'string' ? context.lastDestination : context.lastDestination.name);
+    } else if (context.lastSearchResults.length > 0) {
+        const first = context.lastSearchResults[0];
+        speak(`好的，为您规划到${first.name}的路线。`);
+        executeNavigate(first.name);
+    } else {
+        speak("请先告诉我您想去哪里，比如说导航到食堂。");
+    }
+}
+
+// 处理“还有多远”
+function handleDistance() {
+    if (context.lastRouteInfo && context.lastRouteInfo.distance) {
+        const km = (context.lastRouteInfo.distance / 1000).toFixed(1);
+        const min = Math.round(context.lastRouteInfo.duration / 60);
+        speak(`全程约${km}公里，步行大约需要${min}分钟。`);
+    } else {
+        speak("您还没有规划路线，请先说导航到哪里。");
+    }
+}
+
+// 处理确认（从等待状态中）
+function handleConfirm() {
+    if (context.lastSearchResults.length > 0 && context.lastFacilityType) {
+        const first = context.lastSearchResults[0];
+        speak(`好的，正在为您规划到${first.name}的路线。`);
+        executeNavigate(first.name);
+    } else if (context.lastDestination) {
+        executeNavigate(typeof context.lastDestination === 'string' ? context.lastDestination : context.lastDestination.name);
+    } else {
+        speak("好的，请说出您的具体需求。");
+    }
+    context.waitingConfirmation = false;
+}
+
+function handleDeny() {
+    speak("好的，已取消。您可以重新说出其他需求。");
+    context.waitingConfirmation = false;
+}
+
+// 主入口：处理语音识别结果
+async function processVoiceCommand(command) {
+    if (!command || command.trim() === '') {
+        speak("不好意思，我没有听清，可以请你再说一遍吗？");
+        return;
+    }
+    const intentObj = parseIntent(command);
+    console.log("解析意图:", intentObj);
+    switch (intentObj.intent) {
+        case 'clear':
+            clearContext();
+            break;
+        case 'sos':
+            sos();
+            break;
+        case 'navigate':
+            await executeNavigate(intentObj.target);
+            break;
+        case 'facility':
+            queryFacility(intentObj.type);
+            break;
+        case 'nearby':
+            nearbyFacilities();
+            break;
+        case 'then':
+            handleThen();
+            break;
+        case 'howtogo':
+            handleHowToGo();
+            break;
+        case 'distance':
+            handleDistance();
+            break;
+        case 'confirm':
+            handleConfirm();
+            break;
+        case 'deny':
+            handleDeny();
+            break;
+        default:
+            speak("抱歉，我暂时无法理解这个需求，你可以试着说“导航到教学楼”或“找无障碍卫生间”。");
+    }
+}
+
+// ==================== 持续语音监听（优化错误处理） ====================
+function initSpeechRecognition() {
+    if (!window.webkitSpeechRecognition) {
+        console.warn("浏览器不支持语音识别");
+        return null;
+    }
+    const recog = new webkitSpeechRecognition();
+    recog.lang = 'zh-CN';
+    recog.continuous = true;
+    recog.interimResults = false;
+    recog.maxAlternatives = 1;
+    
+    recog.onresult = (event) => {
+        resetInactivityTimer();
+        const last = event.results[event.results.length - 1];
+        if (last.isFinal) {
+            const command = last[0].transcript;
+            document.getElementById('status').innerText = `🎤 识别到: ${command}`;
+            processVoiceCommand(command).catch(console.error);
+        }
     };
-    recognition.start();
+    
+    recog.onerror = (event) => {
+        console.warn("语音识别错误:", event.error);
+        if (event.error === 'no-speech') {
+            resetInactivityTimer(); // 无声音，重置计时器等待
+        } else if (event.error === 'audio-capture') {
+            speak("没有检测到麦克风，请检查麦克风权限。");
+            stopListening();
+        } else if (event.error === 'not-allowed') {
+            speak("请允许麦克风权限，才能使用语音功能。");
+            stopListening();
+        } else if (event.error === 'network') {
+            speak("网络好像不太稳定，您可以稍后再试。");
+            // 不停止，等待网络恢复
+        } else {
+            // 其他错误，不自动停止，避免反复报错
+        }
+    };
+    
+    recog.onend = () => {
+        if (isListening) {
+            // 意外结束时，延迟1秒重启
+            setTimeout(() => {
+                if (isListening && recognition) {
+                    try {
+                        recognition.start();
+                    } catch (e) {
+                        console.warn("重启识别失败", e);
+                        stopListening();
+                    }
+                }
+            }, 1000);
+        }
+    };
+    return recog;
+}
+
+function resetInactivityTimer() {
+    if (inactivityTimer) clearTimeout(inactivityTimer);
+    inactivityTimer = setTimeout(() => {
+        if (isListening) {
+            speak("尊敬的用户，未检测到您的声音，语音小助手暂时下线。");
+            stopListening();
+        }
+    }, inactivityTimeout);
+}
+
+function startListening() {
+    if (!window.webkitSpeechRecognition) {
+        alert("浏览器不支持语音识别");
+        return false;
+    }
+    if (!recognition) {
+        recognition = initSpeechRecognition();
+        if (!recognition) return false;
+    }
+    try {
+        recognition.start();
+        isListening = true;
+        const voiceBtn = document.getElementById('voiceBtn');
+        voiceBtn.innerHTML = '🎤 语音中...';
+        voiceBtn.style.background = '#ff3b30';
+        voiceBtn.classList.add('listening');
+        document.getElementById('status').innerText = '🎙️ 持续监听中，您可以说话...';
+        resetInactivityTimer();
+        return true;
+    } catch (e) {
+        console.error("启动语音识别失败:", e);
+        if (e.message && e.message.includes('start')) {
+            try { recognition.stop(); } catch(ex) {}
+            setTimeout(() => startListening(), 500);
+        } else {
+            alert("无法启动语音识别，请刷新页面重试");
+        }
+        return false;
+    }
+}
+
+function stopListening() {
+    if (recognition && isListening) {
+        try {
+            recognition.stop();
+        } catch (e) {}
+        isListening = false;
+        if (inactivityTimer) clearTimeout(inactivityTimer);
+        const voiceBtn = document.getElementById('voiceBtn');
+        voiceBtn.innerHTML = '🎤 语音';
+        voiceBtn.style.background = '';
+        voiceBtn.classList.remove('listening');
+        document.getElementById('status').innerHTML = '👋 欢迎使用无障碍出行伴侣';
+    }
+}
+
+function toggleVoiceRecognition() {
+    if (isListening) {
+        stopListening();
+    } else {
+        startListening();
+    }
 }
 
 function sos() {
@@ -634,7 +1091,7 @@ window.onload = () => {
     addPoiMarkers();
     updateObstacleMarkers();
     renderFacilityPanel();
-    if (document.getElementById('voiceBtn')) document.getElementById('voiceBtn').onclick = voiceNavigation;
+    if (document.getElementById('voiceBtn')) document.getElementById('voiceBtn').onclick = toggleVoiceRecognition;
     if (document.getElementById('sosBtn')) document.getElementById('sosBtn').onclick = sos;
     if (document.getElementById('reportBtn')) document.getElementById('reportBtn').onclick = showReportModal;
     if (document.getElementById('statsBtn')) document.getElementById('statsBtn').onclick = showStats;

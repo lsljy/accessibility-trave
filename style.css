@@ -524,3 +524,23 @@ th {
 #routePlan button:hover {
   background: #0066cc;
 }
+
+/* POI 标记点样式优化 */
+.custom-poi {
+    background: transparent !important;
+    border: none !important;
+}
+
+.poi-label {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    letter-spacing: 0.3px;
+    backdrop-filter: blur(4px);
+}
+
+/* 地图缩放时隐藏过小的标签（可选） */
+@media (max-width: 600px) {
+    .poi-label {
+        font-size: 9px;
+        padding: 1px 4px;
+    }
+}
